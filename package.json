@@ -4,8 +4,8 @@
   "devDependencies": {
     "babel": "^5.0.12",
     "chai": "^2.2.0",
-    "grunt": "^0.4.5",
-    "grunt-mocha": "^0.4.12",
+    "gulp": "^3.8.11",
+    "gulp-mocha": "^2.0.1",
     "mocha": "^2.2.4"
   },
   "dependencies": {
