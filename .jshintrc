@@ -1,0 +1,15 @@
+{
+  "es5": true,
+  "esnext": true,
+  "eqeqeq": true,
+  "eqnull": true,
+  "expr": true,
+  "latedef": true,
+  "onevar": true,
+  "noarg": true,
+  "node": true,
+  "trailing": true,
+  "undef": true,
+  "unused": true,
+  "browser": true
+}
