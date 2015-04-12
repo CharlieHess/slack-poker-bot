@@ -3,7 +3,10 @@
   "version": "0.0.1",
   "devDependencies": {
     "babel": "^5.0.12",
-    "grunt": "latest"
+    "chai": "^2.2.0",
+    "grunt": "^0.4.5",
+    "grunt-mocha": "^0.4.12",
+    "mocha": "^2.2.4"
   },
   "dependencies": {
     "slack-client": "^1.4.0"
