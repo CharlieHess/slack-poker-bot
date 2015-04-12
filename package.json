@@ -1,0 +1,11 @@
+{
+  "name": "slack-poker-bot",
+  "version": "0.0.1",
+  "devDependencies": {
+    "babel": "^5.0.12",
+    "grunt": "latest"
+  },
+  "dependencies": {
+    "slack-client": "^1.4.0"
+  }
+}
