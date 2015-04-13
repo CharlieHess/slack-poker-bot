@@ -5,7 +5,7 @@ class Deck {
     this.cards = [];
     for (let suit in Card.Suits()) {
       for (let rank in Card.Ranks()) {
-        let card = new Card(suit, rank);
+        let card = new Card(rank, suit);
         this.cards.push(card);
       }
     }

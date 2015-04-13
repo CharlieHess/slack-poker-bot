@@ -1,22 +1,13 @@
 class Card {
-  constructor(suit, rank) {
-    this.suit = suit;
+  constructor(rank, suit) {
     this.rank = rank;
+    this.suit = suit;
   }
   
   toString() {
-    return `${this.rank}${this.suit[0]}`;
+    return `${this.rank}${this.suit.substring(0, 1).toLowerCase()}`;
   }
-  
-  static Suits() {
-    return [
-      'Spades',
-      'Hearts',
-      'Diamonds',
-      'Clubs'
-    ];
-  }
-  
+
   static Ranks() {
     return [
       '2',
@@ -32,6 +23,15 @@ class Card {
       'Q',
       'K',
       'A',
+    ];
+  }
+  
+  static Suits() {
+    return [
+      'Spades',
+      'Hearts',
+      'Diamonds',
+      'Clubs'
     ];
   }
 }
