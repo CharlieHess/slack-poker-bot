@@ -23,6 +23,10 @@ class Deck {
     }
   }
   
+  nextCard() {
+    return this.cards.shift();
+  }
+  
   toString() {
     return this.cards.join();
   }
