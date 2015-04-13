@@ -1,4 +1,4 @@
-let Card = require('./card.js');
+const Card = require('./card.js');
 
 class Deck {
   constructor() {

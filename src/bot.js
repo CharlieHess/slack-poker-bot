@@ -1,5 +1,6 @@
-let Slack = require('slack-client');
-let Deck = require('./deck');
+const _ = require('underscore-plus')
+const Slack = require('slack-client');
+const Deck = require('./deck');
 
 class Bot {
   constructor(token) {
@@ -10,12 +11,12 @@ class Bot {
     let slack = new Slack(this.token, true, true);
     
     slack.on('open', () => {
-      let channels = Object.keys(slack.channels)
+      let channels = _.keys(slack.channels)
         .map((k) => slack.channels[k])
         .filter((c) => c.is_member)
         .map((c) => c.name);
     
-      let groups = Object.keys(slack.groups)
+      let groups = _.keys(slack.groups)
         .map((k) => slack.groups[k])
         .filter((g) => g.is_open && !g.is_archived)
         .map((g) => g.name);
@@ -34,7 +35,7 @@ class Bot {
       }
       
       let deck = new Deck();
-      //deck.shuffle();
+      deck.shuffle();
       console.log(`Here's my deck of cards: ${deck}`);
     });
     
