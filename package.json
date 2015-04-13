@@ -9,6 +9,7 @@
     "mocha": "^2.2.4"
   },
   "dependencies": {
+    "rx": "^2.5.2",
     "slack-client": "^1.4.0",
     "underscore-plus": "^1.6.6"
   }
