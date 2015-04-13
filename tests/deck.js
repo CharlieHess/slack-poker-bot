@@ -40,9 +40,9 @@ describe('Deck', function() {
     var deck = new Deck();
     deck.shuffle();
     
-    deck.nextCard();
-    deck.nextCard();
-    deck.nextCard();
+    deck.drawCard();
+    deck.drawCard();
+    deck.drawCard();
     
     assert(deck.cards.length === 49);
   });

@@ -23,7 +23,7 @@ class Deck {
     }
   }
   
-  nextCard() {
+  drawCard() {
     return this.cards.shift();
   }
   

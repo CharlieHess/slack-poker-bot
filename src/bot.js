@@ -1,4 +1,4 @@
-const _ = require('underscore-plus')
+const _ = require('underscore-plus');
 const Slack = require('slack-client');
 const Deck = require('./deck');
 
@@ -7,7 +7,7 @@ class Bot {
     this.token = token;
   }
   
-  start() {
+  login() {
     let slack = new Slack(this.token, true, true);
     
     slack.on('open', () => {
