@@ -1,4 +1,5 @@
 let Slack = require('slack-client');
+let Deck = require('./deck');
 
 class Bot {
   constructor(token) {
@@ -31,6 +32,10 @@ class Bot {
       if (groups.length > 0) {
         console.log(`As well as: ${groups.join(', ')}`);
       }
+      
+      let deck = new Deck();
+      //deck.shuffle();
+      console.log(`Here's my deck of cards: ${deck}`);
     });
     
     slack.login();
