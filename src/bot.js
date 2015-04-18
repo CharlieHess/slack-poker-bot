@@ -39,10 +39,17 @@ class Bot {
       if (this.game) {
         channel.send("A game is already in progress, I can't deal another.");
       } else {
-        PlayerInteraction.pollPotentialPlayers(messages, channel).subscribe((userId) => {
-          let player = this.slack.getUserByID(userId);
-          channel.send(`${player.name} has joined the game.`);
-        });
+        let players = [];
+        PlayerInteraction.pollPotentialPlayers(messages, channel).subscribe(
+          (userId) => {
+            let player = this.slack.getUserByID(userId);
+            players.push(player);
+            
+            channel.send(`${player.name} has joined the game.`);
+          }, 
+          (err) => console.log(`Error while polling players: ${err.stack || err}`),
+          () => channel.send(`Time to start the game, with ${players.length} players`)
+        );
       }
     });
   }
