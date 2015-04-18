@@ -16,7 +16,7 @@ class Bot {
   // Public: Brings this bot online and starts handling messages sent to it
   login() {
     rx.Observable.fromEvent(this.slack, 'open')
-      .subscribe(() => this.logBasicInfo());
+      .subscribe(() => this.onClientOpened());
     
     this.respondToDealMessages();
     this.slack.login();
@@ -39,38 +39,35 @@ class Bot {
       if (this.game) {
         channel.send("A game is already in progress, I can't deal another.");
       } else {
-        PlayerInteraction.pollPotentialPlayers(messages, channel)
-          .subscribe((userId) => {
-            let user = this.slack.getUserByID(userId);
-            channel.send(`Player ${user.name} has joined the game`);
-          });
+        PlayerInteraction.pollPotentialPlayers(messages, channel).subscribe((userId) => {
+          let player = this.slack.getUserByID(userId);
+          channel.send(`${player.name} has joined the game.`);
+        });
       }
     });
   }
   
-  // Private: Logs information about what channels and groups this bot is in
-  logBasicInfo() {
-    let channels = _.keys(this.slack.channels)
+  // Private: Save which channels and groups this bot is in and log them
+  onClientOpened() {
+    this.channels = _.keys(this.slack.channels)
       .map((k) => this.slack.channels[k])
-      .filter((c) => c.is_member)
-      .map((c) => c.name);
+      .filter((c) => c.is_member);
   
-    let groups = _.keys(this.slack.groups)
+    this.groups = _.keys(this.slack.groups)
       .map((k) => this.slack.groups[k])
-      .filter((g) => g.is_open && !g.is_archived)
-      .map((g) => g.name);
+      .filter((g) => g.is_open && !g.is_archived);
   
     console.log(`Welcome to Slack. You are ${this.slack.self.name} of ${this.slack.team.name}`);
   
-    if (channels.length > 0) {
-      console.log(`You are in: ${channels.join(', ')}`);
+    if (this.channels.length > 0) {
+      console.log(`You are in: ${this.channels.map((c) => c.name).join(', ')}`);
     }
     else {
       console.log('You are not in any channels.');
     }
   
-    if (groups.length > 0) {
-      console.log(`As well as: ${groups.join(', ')}`);
+    if (this.groups.length > 0) {
+      console.log(`As well as: ${this.groups.map((g) => g.name).join(', ')}`);
     }
   }
 }
