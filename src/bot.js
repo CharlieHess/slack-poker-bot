@@ -63,7 +63,7 @@ class Bot {
   // players - The players participating in the game
   startGame(messages, channel, players) {
     channel.send(`We've got ${players.length} players, let's start the game.`);
-    this.game = new TexasHoldem(messages, channel, players);
+    this.game = new TexasHoldem(this.slack, messages, channel, players);
     this.game.start();
     
     let quitGameMessages = messages.where((e) => 
