@@ -63,13 +63,15 @@ class TexasHoldem {
       let dm = this.playerDms[player.id];
       dm.send(`Your hand is: ${this.playerHands[player.id]}`);
     }
+    
+    this.doBettingRound();
   }
   
   flop() {
     let flop = [this.deck.drawCard(), this.deck.drawCard(), this.deck.drawCard()];
     this.board = flop;
-    
-    this.channel.send(`Dealing the flop: ${this.board}`);
+
+    this.postBoard('flop');
     this.doBettingRound();
   }
   
@@ -78,7 +80,7 @@ class TexasHoldem {
     let turn = this.deck.drawCard();
     this.board.push(turn);
     
-    this.channel.send(`Dealing the turn: ${this.board}`);
+    this.postBoard('turn');
     this.doBettingRound();
   }
   
@@ -87,8 +89,26 @@ class TexasHoldem {
     let river = this.deck.drawCard();
     this.board.push(river);
     
-    this.channel.send(`Dealing the river: ${this.board}`);
+    this.postBoard('river');
     this.doBettingRound();
+  }
+  
+  postBoard(round) {
+    let message = {
+      as_user: true,
+      token: this.slack.token,
+    };
+    
+    message.attachments = [{
+      title: `Dealing the ${round}:`,
+      fallback: this.board.toString(),
+      text: this.board.toString(),
+      color: "good",
+      // TODO: Create an image composed of all of the cards.
+      //image_url: ""
+    }];
+    
+    this.channel.postMessage(message);
   }
   
   doBettingRound() {
