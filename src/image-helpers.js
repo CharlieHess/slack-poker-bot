@@ -2,52 +2,80 @@ const rx = require('rx');
 const lwip = require('lwip');
 
 class ImageHelpers {
-  // Public: Combines two images in a single row, and writes the result to the
-  // output file.
-  //
-  // first - The path to the first image
-  // second - The path to the second image
-  // outputFile - The output file path
-  //
-  // Returns an {Observable} that indicates completion or failure.
-  static concatenateImages(first, second, outputFile) {
+
+  static combineTwo(imagePaths, outputFile) {
+    rx.Observable.fromArray(imagePaths)
+      .concatMap((path) => ImageHelpers.imageFromFile(path))
+      .bufferWithCount(2)
+      .flatMap((images) => ImageHelpers.pasteTwo(images[0], images[1]))
+      .map((combined) => ImageHelpers.imageToFile(combined, outputFile))
+      .subscribe();
+  }
+  
+  static combineThree(imagePaths, outputFile) {
+    rx.Observable.fromArray(imagePaths)
+      .concatMap((path) => ImageHelpers.imageFromFile(path))
+      .bufferWithCount(3)
+      .flatMap((images) => ImageHelpers.pasteThree(images[0], images[1], images[2]))
+      .map((combined) => ImageHelpers.imageToFile(combined, outputFile))
+      .subscribe();
+  }
+  
+  static imageFromFile(path) {
+    return rx.Observable.create((subj) => {
+      lwip.open(path, (err, image) => {
+        if (!err) {
+          subj.onNext(image);
+          subj.onCompleted();
+        } else {
+          subj.onError(err);
+        }
+      });
+    });
+  }
+  
+  static pasteThree(first, second, third) {
+    return ImageHelpers.pasteTwo(first, second)
+      .flatMap((combined) => ImageHelpers.pasteTwo(combined, third));
+  }
+  
+  static pasteTwo(first, second) {
     let subj = new rx.Subject();
     
-    lwip.open(first, (err, firstImage) => {
+    let originalWidth = first.width();
+    let originalHeight = first.height();
+    let additionalWidth = second.width();
+      
+    // Create a blank image that has enough space for both, with a white
+    // background.
+    lwip.create(originalWidth + additionalWidth, originalHeight, 'white', (err, blankImage) => {
       if (err) subj.onError(err);
       
-      let originalWidth = firstImage.width();
-      let originalHeight = firstImage.height();
-      
-      lwip.open(second, (err, secondImage) => {
+      blankImage.paste(0, 0, first, (err, hasFirstImage) => {
         if (err) subj.onError(err);
-        
-        let additionalWidth = secondImage.width();
-        
-        // Create a blank image that has enough space for both, with a white 
-        // background.
-        lwip.create(originalWidth + additionalWidth, originalHeight, 'white', (err, blankImage) => {
-          if (err) subj.onError(err);
-          
-          blankImage.paste(0, 0, firstImage, (err, hasFirstImage) => {
-            if (err) subj.onError(err);
 
-            hasFirstImage.paste(originalWidth, 0, secondImage, (err, combinedImage) => {
-              if (err) subj.onError(err);
-              
-              // After both images have been pasted, output the result.
-              combinedImage.writeFile(outputFile, (err) => {
-                if (err) {
-                  subj.onError(err);
-                } else {
-                  subj.onNext(outputFile);
-                  subj.onCompleted();
-                }
-              });
-            });
-          });
+        hasFirstImage.paste(originalWidth, 0, second, (err, combinedImage) => {
+          if (err) subj.onError(err);
+
+          subj.onNext(combinedImage);
+          subj.onCompleted();
         });
       });
+    });
+    
+    return subj;
+  }
+  
+  static imageToFile(image, outputFile) {
+    let subj = new rx.Subject();
+
+    image.writeFile(outputFile, (err) => {
+      if (!err) {
+        subj.onNext(outputFile);
+        subj.onCompleted();
+      } else {
+        subj.onError(err);
+      }
     });
     
     return subj;
