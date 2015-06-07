@@ -1,4 +1,5 @@
 const fs = require('fs');
+const rx = require('rx');
 const lwip = require('lwip');
 const imgur = require('imgur');
 const promisify = require('promisify-node');
@@ -14,24 +15,46 @@ class ImageHelpers {
   //
   // imageFiles - An array of three image files
   // outputFile - The file where the result will be saved
+  // upload - (Optional) Defaults to `imgur`, but can be overridden for testing
   //
   // Returns an {Observable} that will `onNext` with the URL of the combined
   // image, or `onError` if anything goes wrong
-  static createBoardImage(cards) {
+  static createBoardImage(cards, upload=imgur.uploadFile) {
+    let subj = new rx.Subject();
     let imageFiles = cards.map((c) => `resources/${c}.jpeg`);
 
     if (!fs.existsSync('./output')) {
       fs.mkdirSync('./output');
     }
 
+    // NB: The turn and river depend on the existence of the previous board
+    // image. In practice this will always be the case (you can't have a turn
+    // without a flop), but in testing be careful to follow that order.
+    //
+    // Also note that these images will always overwrite one another, e.g., we
+    // are not identifying them uniquely.
+    let makeImage = null;
     switch (cards.length) {
     case 3:
-      return ImageHelpers.combineThree(imageFiles, './output/flop.jpeg');
+      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.jpeg');
+      break;
     case 4:
-      return ImageHelpers.combineTwo(['./output/flop.jpeg', imageFiles[3]], './output/turn.jpeg');
+      makeImage = ImageHelpers.combineTwo(['./output/flop.jpeg', imageFiles[3]], './output/turn.jpeg');
+      break;
     case 5:
-      return ImageHelpers.combineThree(['./output/flop.jpeg', imageFiles[3], imageFiles[4]], './output/river.jpeg');
+      makeImage = ImageHelpers.combineTwo(['./output/turn.jpeg', imageFiles[4]], './output/river.jpeg');
+      break;
     }
+
+    makeImage
+      .then((outputFile) => upload(outputFile))
+      .then((result) => {
+        subj.onNext(result.data.link);
+        subj.onCompleted();
+      })
+      .catch((err) => subj.onError(err));
+
+    return subj;
   }
 
   // Private: Combines two image files into a single row
