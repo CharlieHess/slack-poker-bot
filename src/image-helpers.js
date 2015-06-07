@@ -1,84 +1,82 @@
 const rx = require('rx');
 const lwip = require('lwip');
+const imgur = require('imgur');
+const promisify = require('promisify-node');
+
+const openImage = promisify(lwip.open);
+const createImage = promisify(lwip.create);
 
 class ImageHelpers {
 
-  static combineTwo(imagePaths, outputFile) {
-    rx.Observable.fromArray(imagePaths)
-      .concatMap((path) => ImageHelpers.imageFromFile(path))
-      .bufferWithCount(2)
-      .flatMap((images) => ImageHelpers.pasteTwo(images[0], images[1]))
-      .map((combined) => ImageHelpers.imageToFile(combined, outputFile))
-      .subscribe();
+  static combineThree(imageFiles) {
+    let images = [];
+    let subj = new rx.Subject();
+
+    openImage(imageFiles[0])
+      .then((firstImage) => {
+        images.push(firstImage);
+        return openImage(imageFiles[1]);
+      })
+      .then((secondImage) => {
+        images.push(secondImage);
+        return openImage(imageFiles[2]);
+      })
+      .then((thirdImage) => {
+        images.push(thirdImage);
+        let combinedWidth = images[0].width() + images[1].width() + images[2].width();
+        let originalHeight = images[0].height();
+        return createImage(combinedWidth, originalHeight, 'white');
+      })
+      .then((destImage) => ImageHelpers.paste(images[0], destImage, 0, 0))
+      .then((destImage) => ImageHelpers.paste(images[1], destImage, images[0].width(), 0))
+      .then((destImage) => ImageHelpers.paste(images[2], destImage, images[0].width() + images[1].width(), 0))
+      .then((destImage) => ImageHelpers.toBuffer(destImage))
+      .then((buffer) => imgur.uploadBase64(buffer.toString('base64')))
+      .then((result) => {
+        subj.onNext(result.data.link);
+        subj.onCompleted();
+      })
+      .catch((err) => {
+        subj.onError(err);
+      });
+
+    return subj;
   }
-  
-  static combineThree(imagePaths, outputFile) {
-    rx.Observable.fromArray(imagePaths)
-      .concatMap((path) => ImageHelpers.imageFromFile(path))
-      .bufferWithCount(3)
-      .flatMap((images) => ImageHelpers.pasteThree(images[0], images[1], images[2]))
-      .map((combined) => ImageHelpers.imageToFile(combined, outputFile))
-      .subscribe();
-  }
-  
-  static imageFromFile(path) {
-    return rx.Observable.create((subj) => {
-      lwip.open(path, (err, image) => {
+
+  static paste(src, dest, x, y) {
+    return new Promise((resolve, reject) => {
+      dest.paste(x, y, src, (err, img) => {
         if (!err) {
-          subj.onNext(image);
-          subj.onCompleted();
+          resolve(img);
         } else {
-          subj.onError(err);
+          reject(err);
         }
       });
     });
   }
-  
-  static pasteThree(first, second, third) {
-    return ImageHelpers.pasteTwo(first, second)
-      .flatMap((combined) => ImageHelpers.pasteTwo(combined, third));
-  }
-  
-  static pasteTwo(first, second) {
-    let subj = new rx.Subject();
-    
-    let originalWidth = first.width();
-    let originalHeight = first.height();
-    let additionalWidth = second.width();
-      
-    // Create a blank image that has enough space for both, with a white
-    // background.
-    lwip.create(originalWidth + additionalWidth, originalHeight, 'white', (err, blankImage) => {
-      if (err) subj.onError(err);
-      
-      blankImage.paste(0, 0, first, (err, hasFirstImage) => {
-        if (err) subj.onError(err);
 
-        hasFirstImage.paste(originalWidth, 0, second, (err, combinedImage) => {
-          if (err) subj.onError(err);
-
-          subj.onNext(combinedImage);
-          subj.onCompleted();
-        });
+  static writeFile(img, outputFile) {
+    return new Promise((resolve, reject) => {
+      img.writeFile(outputFile, (err) => {
+        if (!err) {
+          resolve(outputFile);
+        } else {
+          reject(err);
+        }
       });
     });
-    
-    return subj;
   }
-  
-  static imageToFile(image, outputFile) {
-    let subj = new rx.Subject();
 
-    image.writeFile(outputFile, (err) => {
-      if (!err) {
-        subj.onNext(outputFile);
-        subj.onCompleted();
-      } else {
-        subj.onError(err);
-      }
+  static toBuffer(img) {
+    return new Promise((resolve, reject) => {
+      img.toBuffer('jpg', {quality: 100}, (err, buffer) => {
+        if (!err) {
+          resolve(buffer);
+        } else {
+          reject(err);
+        }
+      });
     });
-    
-    return subj;
   }
 }
 

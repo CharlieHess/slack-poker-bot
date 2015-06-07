@@ -10,7 +10,9 @@
     "mocha": "^2.2.4"
   },
   "dependencies": {
+    "imgur": "^0.1.5",
     "lwip": "0.0.6",
+    "promisify-node": "^0.1.5",
     "rx": "^2.5.2",
     "slack-client": "^1.4.0",
     "underscore-plus": "^1.6.6"
