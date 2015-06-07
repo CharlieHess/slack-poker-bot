@@ -1,4 +1,4 @@
-const rx = require('rx');
+const fs = require('fs');
 const lwip = require('lwip');
 const imgur = require('imgur');
 const promisify = require('promisify-node');
@@ -8,56 +8,65 @@ const createImage = promisify(lwip.create);
 
 class ImageHelpers {
 
-  // Public: Combines three card images into a single row using the
-  // light-weight image processing library (`lwip`), then converts the result
-  // into a base-64 encoded string and uploads it using the `imgur` API.
+  // Public: Creates an image of the board from the given cards using the
+  // light-weight image processing library (`lwip`), then writes the result to
+  // a file and uploads it to `imgur`.
   //
   // imageFiles - An array of three image files
-  // upload - (Optional) Defaults to `imgur`, but can be overridden for testing
+  // outputFile - The file where the result will be saved
   //
   // Returns an {Observable} that will `onNext` with the URL of the combined
   // image, or `onError` if anything goes wrong
-  static createFlopImage(imageFiles, upload=imgur.uploadBase64) {
-    let images = [];
-    let subj = new rx.Subject();
+  static createBoardImage(cards) {
+    let imageFiles = cards.map((c) => `resources/${c}.jpeg`);
 
-    // First, open each image and store off a reference to it
-    openImage(imageFiles[0])
+    if (!fs.existsSync('./output')) {
+      fs.mkdirSync('./output');
+    }
+
+    switch (cards.length) {
+    case 3:
+      return ImageHelpers.combineThree(imageFiles, './output/flop.jpeg');
+    case 4:
+      return ImageHelpers.combineTwo(['./output/flop.jpeg', imageFiles[3]], './output/turn.jpeg');
+    case 5:
+      return ImageHelpers.combineThree(['./output/flop.jpeg', imageFiles[3], imageFiles[4]], './output/river.jpeg');
+    }
+  }
+
+  // Private: Combines two image files into a single row
+  //
+  // imageFiles - An array of two image files
+  // outputFile - The file where the result will be saved
+  //
+  // Returns a {Promise} of the resulting file
+  static combineTwo(imageFiles, outputFile) {
+    let images = [];
+
+    return openImage(imageFiles[0])
       .then((firstImage) => {
         images.push(firstImage);
         return openImage(imageFiles[1]);
       })
       .then((secondImage) => {
         images.push(secondImage);
-        return openImage(imageFiles[2]);
+        return createImage(images[0].width() + images[1].width(), images[0].height(), 'white');
       })
-      .then((thirdImage) => {
-        images.push(thirdImage);
-
-        let combinedWidth = images[0].width() + images[1].width() + images[2].width();
-        let originalHeight = images[0].height();
-
-        // Next, create a blank image that can hold all three
-        return createImage(combinedWidth, originalHeight, 'white');
-      })
-
-      // Now paste each image onto the destination image
       .then((destImage) => ImageHelpers.paste(images[0], destImage, 0, 0))
       .then((destImage) => ImageHelpers.paste(images[1], destImage, images[0].width(), 0))
-      .then((destImage) => ImageHelpers.paste(images[2], destImage, images[0].width() + images[1].width(), 0))
+      .then((destImage) => ImageHelpers.writeFile(destImage, outputFile));
+  }
 
-      // Finally, convert the result to a base-64 string and upload it
-      .then((destImage) => ImageHelpers.toBuffer(destImage))
-      .then((buffer) => upload(buffer.toString('base64')))
-      .then((result) => {
-        subj.onNext(result.data.link);
-        subj.onCompleted();
-      })
-      .catch((err) => {
-        subj.onError(err);
-      });
-
-    return subj;
+  // Private: Combines three images files into a single row, using the
+  // `combineTwo` sequentially
+  //
+  // imageFiles - An array of three image files
+  // outputFile - The file where the result will be saved
+  //
+  // Returns a {Promise} of the resulting file
+  static combineThree(imageFiles, outputFile) {
+    return ImageHelpers.combineTwo(imageFiles.slice(0, 2), outputFile)
+      .then(() => ImageHelpers.combineTwo([outputFile, imageFiles[2]], outputFile));
   }
 
   // Private: Returns a Promisified version of the `paste` method
