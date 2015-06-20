@@ -25,19 +25,41 @@ class TexasHoldem {
     }
 
     this.deck = new Deck();
-    this.inGame = true;
+    this.quitGame = new rx.Subject();
+    this.disp = new rx.CompositeDisposable();
   }
 
+  // Public: Starts a new game.
+  //
+  // Returns nothing
   start() {
-    while (this.inGame) {
-      this.playHand();
-    }
+    this.disp.add(rx.Observable.return(true)
+      .flatMap(() => this.playHand())
+      .repeat()
+      .takeUntil(this.quitGame)
+      .subscribe());
   }
 
+  // Public: Ends the current game immediately and disposes all resources
+  // associated with the game.
+  //
+  // Returns nothing
   quit() {
-    this.inGame = false;
+    this.quitGame.onNext();
+    this.disp.dispose();
   }
 
+  // Private: Plays a single hand of hold'em. The sequence goes like this:
+  // 1. Clear the board and player hands
+  // 2. Shuffle the deck and give players their cards
+  // 3. TODO: Do a pre-flop betting round
+  // 4. Deal the flop and do a betting round
+  // 5. Deal the turn and do a betting round
+  // 6. Deal the river and do a final betting round
+  // 7. TODO: Decide a winner and send chips their way
+  //
+  // Returns an {Observable} sequence of all actions taken by players during
+  // the hand
   playHand() {
     this.board = [];
     this.playerHands = {};
@@ -45,14 +67,16 @@ class TexasHoldem {
     this.deck.shuffle();
     this.dealPlayerCards();
 
-    this.flop().flatMap(() =>
+    return this.flop().flatMap(() =>
       this.turn().flatMap(() =>
-        this.river())).subscribe();
-
-    // TODO: Only play one hand right now, until we sort the betting rounds.
-    this.quit();
+        this.river()));
   }
 
+  // Private: Deals hole cards to each player in the game. To communicate this
+  // to the players, we send them a DM with the text description of the cards.
+  // We can't post in channel for obvious reasons.
+  //
+  // Returns nothing
   dealPlayerCards() {
     for (let player of this.players) {
       let card = this.deck.drawCard();
@@ -63,12 +87,14 @@ class TexasHoldem {
       let card = this.deck.drawCard();
       this.playerHands[player.id].push(card);
 
-      // Send hole cards as a DM; we can't post in channel for obvious reasons.
       let dm = this.playerDms[player.id];
       dm.send(`Your hand is: ${this.playerHands[player.id]}`);
     }
   }
 
+  // Private: Handles the flop and its subsequent round of betting.
+  //
+  // Returns an {Observable} sequence of player actions taken during the flop
   flop() {
     let flop = [this.deck.drawCard(), this.deck.drawCard(), this.deck.drawCard()];
     this.board = flop;
@@ -77,6 +103,9 @@ class TexasHoldem {
       .flatMap(() => this.doBettingRound());
   }
 
+  // Private: Handles the turn and its subsequent round of betting.
+  //
+  // Returns an {Observable} sequence of player actions taken during the turn
   turn() {
     this.deck.drawCard(); // Burn one
     let turn = this.deck.drawCard();
@@ -86,6 +115,9 @@ class TexasHoldem {
       .flatMap(() => this.doBettingRound());
   }
 
+  // Private: Handles the river and its subsequent round of betting.
+  //
+  // Returns an {Observable} sequence of player actions taken during the river
   river() {
     this.deck.drawCard(); // Burn one
     let river = this.deck.drawCard();
@@ -95,6 +127,12 @@ class TexasHoldem {
       .flatMap(() => this.doBettingRound());
   }
 
+  // Private: Creates an image of the cards on board and posts it to the
+  // channel using `message.attachments`.
+  //
+  // round - The name of the round
+  //
+  // Returns an {Observable} indicating completion
   postBoard(round) {
     return ImageHelpers.createBoardImage(this.board).flatMap((url) => {
       let message = {
@@ -111,10 +149,17 @@ class TexasHoldem {
       }];
 
       this.channel.postMessage(message);
+
+      // NB: Since we don't have a callback for the message arriving, we're
+      // just going to wait a bit before continuing.
       return rx.Observable.timer(500);
     }).take(1);
   }
 
+  // Private: Handles the logic for a round of betting.
+  //
+  // Returns an {Observable} sequence of actions (e.g, 'check', 'fold') taken
+  // by players during the round
   doBettingRound() {
     return rx.Observable.fromArray(this.players)
       .concatMap((player) => PlayerInteraction.getActionForPlayer(this.messages, this.channel, player));
