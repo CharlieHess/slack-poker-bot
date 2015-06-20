@@ -112,7 +112,7 @@ class TexasHoldem {
 
       this.channel.postMessage(message);
       return rx.Observable.timer(500);
-    });
+    }).take(1);
   }
 
   doBettingRound() {

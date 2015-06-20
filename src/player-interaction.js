@@ -46,7 +46,8 @@ class PlayerInteraction {
     playerAction.connect();
 
     return rx.Observable
-      .amb(playerAction, timeExpired.map(() => 'check'))
+      .merge(playerAction, timeExpired.map(() => 'check'))
+      .take(1)
       .do((action) => channel.send(`${player.name} ${action}s.`));
   }
 
