@@ -45,9 +45,9 @@ class TexasHoldem {
     this.deck.shuffle();
     this.dealPlayerCards();
 
-    this.flop().subscribe(() =>
-      this.turn().subscribe(() =>
-        this.river().subscribe()));
+    this.flop().flatMap(() =>
+      this.turn().flatMap(() =>
+        this.river())).subscribe();
 
     // TODO: Only play one hand right now, until we sort the betting rounds.
     this.quit();
@@ -73,8 +73,8 @@ class TexasHoldem {
     let flop = [this.deck.drawCard(), this.deck.drawCard(), this.deck.drawCard()];
     this.board = flop;
 
-    this.postBoard('flop');
-    return this.doBettingRound();
+    return this.postBoard('flop')
+      .flatMap(() => this.doBettingRound());
   }
 
   turn() {
@@ -82,8 +82,8 @@ class TexasHoldem {
     let turn = this.deck.drawCard();
     this.board.push(turn);
 
-    this.postBoard('turn');
-    return this.doBettingRound();
+    return this.postBoard('turn')
+      .flatMap(() => this.doBettingRound());
   }
 
   river() {
@@ -91,12 +91,12 @@ class TexasHoldem {
     let river = this.deck.drawCard();
     this.board.push(river);
 
-    this.postBoard('river');
-    return this.doBettingRound();
+    return this.postBoard('river')
+      .flatMap(() => this.doBettingRound());
   }
 
   postBoard(round) {
-    let ret = ImageHelpers.createBoardImage(this.board).map((url) => {
+    return ImageHelpers.createBoardImage(this.board).flatMap((url) => {
       let message = {
         as_user: true,
         token: this.slack.token,
@@ -111,9 +111,8 @@ class TexasHoldem {
       }];
 
       this.channel.postMessage(message);
-    }).publish();
-    ret.connect();
-    return ret;
+      return rx.Observable.timer(500);
+    });
   }
 
   doBettingRound() {
