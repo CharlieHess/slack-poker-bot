@@ -15,7 +15,7 @@ class PlayerInteraction {
   static pollPotentialPlayers(messages, channel, scheduler=rx.Scheduler.timeout, timeout=5, maxPlayers=6) {
     let intro = `Who wants to play?`;
     let formatMessage = (t) => `Respond with 'yes' in this channel in the next ${t} seconds.`;
-    let timeExpired = PlayerInteraction.postMessageWithTimeout(channel, intro,
+    let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, intro,
       formatMessage, scheduler, timeout);
 
     // Look for messages containing the word 'yes' and map them to a unique
@@ -27,6 +27,7 @@ class PlayerInteraction {
       .publish();
 
     newPlayers.connect();
+    timeExpired.connect();
 
     // Once our timer has expired, we're done accepting new players.
     return newPlayers.takeUntil(timeExpired);
@@ -35,7 +36,7 @@ class PlayerInteraction {
   static getActionForPlayer(messages, channel, player, scheduler=rx.Scheduler.timeout, timeout=30) {
     let intro = `${player.name}, it's your turn to act.`;
     let formatMessage = (t) => `Respond with *(C)heck*, *(F)old*, or *(B)et* / *(R)aise* in the next ${t} seconds.`;
-    let timeExpired = PlayerInteraction.postMessageWithTimeout(channel, intro,
+    let {timeExpired, message} = PlayerInteraction.postMessageWithTimeout(channel, intro,
       formatMessage, scheduler, timeout);
 
     let playerAction = messages.where((e) => e.user === player.id)
@@ -44,11 +45,15 @@ class PlayerInteraction {
       .publish();
 
     playerAction.connect();
+    let disp = timeExpired.connect();
 
     return rx.Observable
       .merge(playerAction, timeExpired.map(() => 'check'))
       .take(1)
-      .do((action) => channel.send(`${player.name} ${action}s.`));
+      .do((action) => {
+        disp.dispose();
+        message.updateMessage(`${player.name} ${action}s.`);
+      });
   }
 
   static postMessageWithTimeout(channel, intro, formatMessage, scheduler, timeout) {
@@ -62,8 +67,7 @@ class PlayerInteraction {
       .do((x) => timeoutMessage.updateMessage(formatMessage(`${timeout - x}`)))
       .publishLast();
 
-    ret.connect();
-    return ret;
+    return {timeExpired: ret, message: timeoutMessage};
   }
 
   static actionForMessage(text) {
