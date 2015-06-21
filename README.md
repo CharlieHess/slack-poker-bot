@@ -1,6 +1,8 @@
 ## Slack Poker Bot
 A bot that will deal Texas Hold'em games in a Slack channel!
 
+![](https://s3.amazonaws.com/f.cl.ly/items/340c2v3Q1a1S0y3u2o1d/Image%202015-06-20%20at%206.39.31%20PM.png?t=1434850947156)
+
 ### Getting Started
 1. Add your API token to `main.js`
 1. `npm install`
