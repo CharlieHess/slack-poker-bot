@@ -224,8 +224,14 @@ class TexasHoldem {
   // Returns an {Observable} sequence of actions (e.g, 'check', 'fold') taken
   // by players during the round
   doBettingRound() {
-    return rx.Observable.fromArray(this.players)
-      .concatMap((player) => PlayerInteraction.getActionForPlayer(this.messages, this.channel, player));
+    return rx.Observable.fromArray(this.playersInHand)
+      .concatMap((player) => rx.Observable.defer(() =>
+        PlayerInteraction.getActionForPlayer(this.messages, this.channel, player)))
+      .reduce((acc, x) => {
+        acc.push(x);
+        return acc;
+      }, [])
+      .do((result) => console.log(`Got result: ${JSON.stringify(result)}`));
   }
 }
 
