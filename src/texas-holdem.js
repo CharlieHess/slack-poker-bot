@@ -65,6 +65,9 @@ class TexasHoldem {
     this.board = [];
     this.playerHands = {};
 
+    // TODO: Move dealer button and order players according to that
+    this.playersInHand = this.players.slice(0);
+
     this.deck.shuffle();
     this.dealPlayerCards();
 
@@ -93,8 +96,12 @@ class TexasHoldem {
       let card = this.deck.drawCard();
       this.playerHands[player.id].push(card);
 
-      let dm = this.playerDms[player.id];
-      dm.send(`Your hand is: ${this.playerHands[player.id]}`);
+      if (!player.isBot) {
+        let dm = this.playerDms[player.id];
+        dm.send(`Your hand is: ${this.playerHands[player.id]}`);
+      } else {
+        player.holeCards = this.playerHands[player.id];
+      }
     }
   }
 
@@ -214,8 +221,8 @@ class TexasHoldem {
       this.channel.postMessage(message);
 
       // NB: Since we don't have a callback for the message arriving, we're
-      // just going to wait a bit before continuing.
-      return rx.Observable.timer(500);
+      // just going to wait a second before continuing.
+      return rx.Observable.timer(1000);
     }).take(1);
   }
 
@@ -224,8 +231,14 @@ class TexasHoldem {
   // Returns an {Observable} sequence of actions (e.g, 'check', 'fold') taken
   // by players during the round
   doBettingRound() {
-    return rx.Observable.fromArray(this.players)
-      .concatMap((player) => PlayerInteraction.getActionForPlayer(this.messages, this.channel, player));
+    return rx.Observable.fromArray(this.playersInHand)
+      .concatMap((player) => rx.Observable.defer(() =>
+        PlayerInteraction.getActionForPlayer(this.messages, this.channel, player)))
+      .reduce((acc, x) => {
+        acc.push(x);
+        return acc;
+      }, [])
+      .do((result) => console.log(`Got result: ${JSON.stringify(result)}`));
   }
 }
 
