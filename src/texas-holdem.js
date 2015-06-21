@@ -1,4 +1,5 @@
 const rx = require('rx');
+const pokerEvaluator = require('poker-evaluator');
 
 const Deck = require('./deck');
 const ImageHelpers = require('./image-helpers');
@@ -20,7 +21,7 @@ class TexasHoldem {
     // Cache the direct message channels for each player as we'll be using
     // them often, and fetching them takes linear time per number of users.
     this.playerDms = {};
-    for (let player of players) {
+    for (let player of this.players) {
       this.playerDms[player.id] = this.slack.getDMByName(player.name);
     }
 
@@ -58,8 +59,7 @@ class TexasHoldem {
   // 6. Deal the river and do a final betting round
   // 7. TODO: Decide a winner and send chips their way
   //
-  // Returns an {Observable} sequence of all actions taken by players during
-  // the hand
+  // Returns an {Observable} containing the result of the hand
   playHand() {
     this.board = [];
     this.playerHands = {};
@@ -67,9 +67,14 @@ class TexasHoldem {
     this.deck.shuffle();
     this.dealPlayerCards();
 
+    let evaluation = () =>
+      this.evaluateHands().do((result) => {
+        this.channel.send(`${result.winner.name} wins with ${result.bestHand.handName}`);
+      });
+
     return this.flop().flatMap(() =>
       this.turn().flatMap(() =>
-        this.river()));
+        this.river().flatMap(evaluation)));
   }
 
   // Private: Deals hole cards to each player in the game. To communicate this
@@ -125,6 +130,36 @@ class TexasHoldem {
 
     return this.postBoard('river')
       .flatMap(() => this.doBettingRound());
+  }
+
+  // Private: For each player, create a 7-card hand by combining their hole
+  // cards with the board, then pass that to our hand evaluator to get the type
+  // of hand and its ranking among types. If it's better than the best hand
+  // we've seen so far, assign a winner.
+  //
+  // Returns an {Observable} with a single value: an object containing the
+  // winning player ID and the hand they had.
+  evaluateHands() {
+    let winner = null;
+    let bestHand = { handType: 0, handRank: 0 };
+
+    for (let player of this.players) {
+      let sevenCardHand = [...this.playerHands[player.id], ...this.board];
+      let evalInput = sevenCardHand.map(card => card.toString());
+      let currentHand = pokerEvaluator.evalHand(evalInput);
+
+      // TODO: Handle ties
+      if (currentHand.handType > bestHand.handType ||
+        (currentHand.handType === bestHand.handType && currentHand.handRank > bestHand.handRank)) {
+        bestHand = currentHand;
+        winner = player;
+      }
+    }
+
+    return rx.Observable.return({
+      bestHand: bestHand,
+      winner: winner
+    });
   }
 
   // Private: Creates an image of the cards on board and posts it to the
