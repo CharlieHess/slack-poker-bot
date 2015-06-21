@@ -18,7 +18,12 @@ A bot that will deal Texas Hold'em games in a Slack channel!
 - [x] Display actual cards
   - [x] Render the cards as an image attachment
   - [x] Upload to imgur
+- [x] Determining the best hand
 - [ ] Logic for a betting round
-- [ ] Determining the best hand
 - [ ] Potential AI plug-in?
 - [ ] Infinity other things
+
+### Dependencies
+* [Poker Evaluator](https://github.com/chenosaurus/poker-evaluator)
+* [Lightweight Image Processor](https://github.com/EyalAr/lwip)
+* [Imgur](https://github.com/kaimallea/node-imgur)
