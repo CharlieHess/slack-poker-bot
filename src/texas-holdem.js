@@ -4,6 +4,7 @@ const pokerEvaluator = require('poker-evaluator');
 const Deck = require('./deck');
 const ImageHelpers = require('./image-helpers');
 const PlayerInteraction = require('./player-interaction');
+const Combinations = require('../util/combinations');
 
 class TexasHoldem {
   // Public: Creates a new game instance.
@@ -69,7 +70,7 @@ class TexasHoldem {
 
     let evaluation = () =>
       this.evaluateHands().do((result) => {
-        this.channel.send(`${result.winner.name} wins with ${result.bestHand.handName}`);
+        this.channel.send(`${result.winner.name} wins with ${result.handName}, ${result.hand.toString()}`);
       });
 
     return this.flop().flatMap(() =>
@@ -138,10 +139,11 @@ class TexasHoldem {
   // we've seen so far, assign a winner.
   //
   // Returns an {Observable} with a single value: an object containing the
-  // winning player ID and the hand they had.
+  // winning player and information about their hand.
   evaluateHands() {
-    let winner = null;
     let bestHand = { handType: 0, handRank: 0 };
+    let winner = null;
+    let cardArray = null;
 
     for (let player of this.players) {
       let sevenCardHand = [...this.playerHands[player.id], ...this.board];
@@ -153,13 +155,39 @@ class TexasHoldem {
         (currentHand.handType === bestHand.handType && currentHand.handRank > bestHand.handRank)) {
         bestHand = currentHand;
         winner = player;
+        cardArray = sevenCardHand;
       }
     }
 
     return rx.Observable.return({
-      bestHand: bestHand,
-      winner: winner
+      winner: winner,
+      hand: this.bestFiveCardHand(cardArray),
+      handName: bestHand.handName
     });
+  }
+
+  // Private: Determines the best possible 5-card hand from a 7-card hand. To
+  // do this, we first need to get all the unique 5-card combinations, then
+  // have our hand evaluator rank them.
+  //
+  // Returns an array of five {Card} objects
+  bestFiveCardHand(sevenCardHand) {
+    let fiveCardHands = Combinations.k_combinations(sevenCardHand, 5);
+    let bestHand = { handType: 0, handRank: 0 };
+    let cardArray = null;
+
+    for (let fiveCardHand of fiveCardHands) {
+      let evalInput = fiveCardHand.map(card => card.toString());
+      let currentHand = pokerEvaluator.evalHand(evalInput);
+
+      if (currentHand.handType > bestHand.handType ||
+        (currentHand.handType === bestHand.handType && currentHand.handRank > bestHand.handRank)) {
+        bestHand = currentHand;
+        cardArray = fiveCardHand;
+      }
+    }
+
+    return cardArray;
   }
 
   // Private: Creates an image of the cards on board and posts it to the
