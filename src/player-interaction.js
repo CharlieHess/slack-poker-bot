@@ -33,12 +33,23 @@ class PlayerInteraction {
     return newPlayers.takeUntil(timeExpired);
   }
 
+  // Public: Poll a specific player to take a poker action, within a timeout.
+  //
+  // messages - An {Observable} representing new messages sent to the channel
+  // channel - The {Channel} object, used for posting messages
+  // player - The player being polled
+  // scheduler - (Optional) The scheduler to use for timing events
+  // timeout - (Optional) The amount of time to conduct polling, in seconds
+  //
+  // Returns an {Observable} indicating the action the player took. If time
+  // expires, a 'timeout' action is returned.
   static getActionForPlayer(messages, channel, player, scheduler=rx.Scheduler.timeout, timeout=30) {
     let intro = `${player.name}, it's your turn to act.`;
     let formatMessage = (t) => `Respond with *(C)heck*, *(F)old*, or *(B)et* / *(R)aise* in the next ${t} seconds.`;
     let {timeExpired, message} = PlayerInteraction.postMessageWithTimeout(channel, intro,
       formatMessage, scheduler, timeout);
 
+    // Look for text that conforms to a player action.
     let playerAction = messages.where((e) => e.user === player.id)
       .map((e) => PlayerInteraction.actionForMessage(e.text))
       .where((action) => action !== '')
@@ -47,8 +58,10 @@ class PlayerInteraction {
     playerAction.connect();
     let disp = timeExpired.connect();
 
+    // NB: Take the first result from the player action, the timeout, and a bot
+    // action (only applicable to bots)
     return rx.Observable
-      .merge(playerAction, timeExpired.map(() => 'check'),
+      .merge(playerAction, timeExpired.map(() => 'timeout'),
         player.isBot ? player.getAction() : rx.Observable.never())
       .take(1)
       .do((action) => {
@@ -57,20 +70,36 @@ class PlayerInteraction {
       });
   }
 
+  // Private: Posts a message to the channel with some timeout, that edits
+  // itself each second to provide a countdown.
+  //
+  // channel - The channel to post in
+  // intro - An optional introductory message to lead off with
+  // formatMessage - A function that will be invoked once per second with the
+  //                 remaining time, and returns the formatted message content
+  // scheduler - The scheduler to use for timing events
+  // timeout - The duration of the message, in seconds
+  //
+  // Returns an object with two keys: `timeExpired`, an {Observable} sequence
+  // that fires when the message expires, and `message`, the message posted to
+  // the channel.
   static postMessageWithTimeout(channel, intro, formatMessage, scheduler, timeout) {
     channel.send(intro);
     let timeoutMessage = channel.send(formatMessage(timeout));
 
-    // Start a timer for `timeout` seconds, that ticks once per second,
-    // updating a message in the channel.
-    let ret = rx.Observable.timer(0, 1000, scheduler)
+    let timeExpired = rx.Observable.timer(0, 1000, scheduler)
       .take(timeout + 1)
       .do((x) => timeoutMessage.updateMessage(formatMessage(`${timeout - x}`)))
       .publishLast();
 
-    return {timeExpired: ret, message: timeoutMessage};
+    return {timeExpired: timeExpired, message: timeoutMessage};
   }
 
+  // Private: Maps abbreviated text for a player action to its canonical name.
+  //
+  // text - The text of the player message
+  //
+  // Returns the canonical action
   static actionForMessage(text) {
     if (!text) return '';
 
