@@ -5,6 +5,7 @@ const Slack = require('slack-client');
 const TexasHoldem = require('./texas-holdem');
 const MessageHelpers = require('./message-helpers');
 const PlayerInteraction = require('./player-interaction');
+const WeakBot = require('../ai/weak-bot');
 
 class Bot {
   // Public: Creates a new instance of the bot.
@@ -41,6 +42,7 @@ class Bot {
         channel.send("A game is already in progress, I can't deal another.");
       } else {
         let players = [];
+        this.addBotPlayers(players);
 
         PlayerInteraction.pollPotentialPlayers(messages, channel).subscribe(
           (userId) => {
@@ -80,6 +82,14 @@ class Bot {
 
       listener.dispose();
     });
+  }
+
+  // Private: Adds AI-based players (primarily for testing purposes).
+  //
+  // players - The players participating in the game
+  addBotPlayers(players) {
+    let bot = new WeakBot();
+    players.push(bot);
   }
 
   // Private: Save which channels and groups this bot is in and log them.

@@ -48,7 +48,8 @@ class PlayerInteraction {
     let disp = timeExpired.connect();
 
     return rx.Observable
-      .merge(playerAction, timeExpired.map(() => 'check'))
+      .merge(playerAction, timeExpired.map(() => 'check'),
+        player.isBot ? player.getAction() : rx.Observable.never())
       .take(1)
       .do((action) => {
         disp.dispose();

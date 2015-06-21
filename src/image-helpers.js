@@ -44,6 +44,8 @@ class ImageHelpers {
     case 5:
       makeImage = ImageHelpers.combineTwo(['./output/turn.jpeg', imageFiles[4]], './output/river.jpeg');
       break;
+    default:
+      throw new Error(`Attempted to make board image for ${cards.length} cards.`);
     }
 
     makeImage
