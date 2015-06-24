@@ -35,6 +35,9 @@ class TexasHoldem {
   //
   // Returns nothing
   start() {
+    // NB: Randomly assign the dealer button to start
+    this.dealerButton = Math.floor(Math.random() * (this.players.length + 1));
+
     this.disp.add(rx.Observable.return(true)
       .flatMap(() => this.playHand())
       .repeat()
@@ -65,20 +68,26 @@ class TexasHoldem {
     this.board = [];
     this.playerHands = {};
 
-    // TODO: Move dealer button and order players according to that
-    this.playersInHand = this.players.slice(0);
-
+    this.assignBlinds();
     this.deck.shuffle();
     this.dealPlayerCards();
 
-    let evaluation = () =>
+    let handFinished = () =>
       this.evaluateHands().do((result) => {
         this.channel.send(`${result.winner.name} wins with ${result.handName}, ${result.hand.toString()}`);
+
+        this.dealerButton = (this.dealerButton + 1) % this.players.length;
       });
 
-    return this.flop().flatMap(() =>
-      this.turn().flatMap(() =>
-        this.river().flatMap(evaluation)));
+    return this.doBettingRound(true).flatMap(() =>
+      this.flop().flatMap(() =>
+        this.turn().flatMap(() =>
+          this.river().flatMap(handFinished))));
+  }
+
+  assignBlinds() {
+    this.smallBlind = (this.dealerButton + 1) % this.players.length;
+    this.bigBlind = (this.smallBlind + 1) % this.players.length;
   }
 
   // Private: Deals hole cards to each player in the game. To communicate this
@@ -87,12 +96,15 @@ class TexasHoldem {
   //
   // Returns nothing
   dealPlayerCards() {
-    for (let player of this.players) {
+    // NB: Always deal cards to small blind first.
+    this.playersInHand = this.orderPlayers(this.players, 1);
+
+    for (let player of this.playersInHand) {
       let card = this.deck.drawCard();
       this.playerHands[player.id] = [card];
     }
 
-    for (let player of this.players) {
+    for (let player of this.playersInHand) {
       let card = this.deck.drawCard();
       this.playerHands[player.id].push(card);
 
@@ -230,7 +242,8 @@ class TexasHoldem {
   //
   // Returns an {Observable} sequence of actions (e.g, 'check', 'fold') taken
   // by players during the round
-  doBettingRound() {
+  doBettingRound(isPreflop) {
+    this.playersInHand = this.orderPlayers(this.playersInHand, isPreflop ? 3 : 1);
     let previousActions = [];
 
     // NB: Take the players remaining in the hand, in order, and map each to an
@@ -248,6 +261,18 @@ class TexasHoldem {
         return acc;
       }, [])
       .do((result) => console.log(`Got result: ${JSON.stringify(result)}`));
+  }
+
+  orderPlayers(players, offset) {
+    let firstToAct = (this.dealerButton + offset) % players.length;
+    let orderedPlayers = [];
+
+    for (let index = 0; index < players.length; index++) {
+      let actionIndex = (firstToAct + index) % players.length;
+      orderedPlayers.push(players[actionIndex]);
+    }
+
+    return orderedPlayers;
   }
 }
 
