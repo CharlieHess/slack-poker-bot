@@ -231,13 +231,18 @@ class TexasHoldem {
   // Returns an {Observable} sequence of actions (e.g, 'check', 'fold') taken
   // by players during the round
   doBettingRound() {
+    let previousActions = [];
+
     // NB: Take the players remaining in the hand, in order, and map each to an
     // action for that round. We need to use `defer` to ensure the sequence
     // doesn't continue until the previous action is completed, and `reduce` to
     // turn the resulting sequence into a single array.
     return rx.Observable.fromArray(this.playersInHand)
-      .concatMap((player) => rx.Observable.defer(() =>
-        PlayerInteraction.getActionForPlayer(this.messages, this.channel, player)))
+      .concatMap((player) => rx.Observable.defer(() => {
+        console.log(`Previous actions: ${JSON.stringify(previousActions)}`);
+        return PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions)
+          .do((action) => previousActions.push(action));
+      }))
       .reduce((acc, x) => {
         acc.push(x);
         return acc;
