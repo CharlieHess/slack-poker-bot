@@ -9,7 +9,8 @@ describe('PlayerOrder', function() {
   describe('the determine method', function() {
 
     it("should never change the order of the source array", function() {
-      let players = ['0', '1', '2', '3'];
+      var players = ['0', '1', '2', '3'];
+      var dealerButton = 0;
       PlayerOrder.determine(players, dealerButton, 'flop');
 
       assert(players[0] == '0');
@@ -19,8 +20,9 @@ describe('PlayerOrder', function() {
     });
 
     it("should ensure that cards are always dealt to the SB first", function() {
-      let players = ['DB', 'SB', 'BB', 'UTG'];
-      let orderedPlayers = PlayerOrder.determine(players, dealerButton, 'deal');
+      var players = ['DB', 'SB', 'BB', 'UTG'];
+      var dealerButton = 0;
+      var orderedPlayers = PlayerOrder.determine(players, dealerButton, 'deal');
 
       assert(orderedPlayers[0] == 'SB');
       assert(orderedPlayers[1] == 'BB');
