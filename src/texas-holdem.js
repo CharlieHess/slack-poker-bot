@@ -4,6 +4,7 @@ const pokerEvaluator = require('poker-evaluator');
 const Deck = require('./deck');
 const ImageHelpers = require('./image-helpers');
 const PlayerInteraction = require('./player-interaction');
+const PlayerOrder = require('./player-order');
 const Combinations = require('../util/combinations');
 
 class TexasHoldem {
@@ -79,7 +80,7 @@ class TexasHoldem {
         this.dealerButton = (this.dealerButton + 1) % this.players.length;
       });
 
-    return this.doBettingRound(true).flatMap(() =>
+    return this.doBettingRound('preflop').flatMap(() =>
       this.flop().flatMap(() =>
         this.turn().flatMap(() =>
           this.river().flatMap(handFinished))));
@@ -96,15 +97,14 @@ class TexasHoldem {
   //
   // Returns nothing
   dealPlayerCards() {
-    // NB: Always deal cards to small blind first.
-    this.playersInHand = this.orderPlayers(this.players, 1);
+    this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, 'deal');
 
-    for (let player of this.playersInHand) {
+    for (let player of this.orderedPlayers) {
       let card = this.deck.drawCard();
       this.playerHands[player.id] = [card];
     }
 
-    for (let player of this.playersInHand) {
+    for (let player of this.orderedPlayers) {
       let card = this.deck.drawCard();
       this.playerHands[player.id].push(card);
 
@@ -125,7 +125,7 @@ class TexasHoldem {
     this.board = flop;
 
     return this.postBoard('flop')
-      .flatMap(() => this.doBettingRound());
+      .flatMap(() => this.doBettingRound('flop'));
   }
 
   // Private: Handles the turn and its subsequent round of betting.
@@ -137,7 +137,7 @@ class TexasHoldem {
     this.board.push(turn);
 
     return this.postBoard('turn')
-      .flatMap(() => this.doBettingRound());
+      .flatMap(() => this.doBettingRound('turn'));
   }
 
   // Private: Handles the river and its subsequent round of betting.
@@ -149,7 +149,7 @@ class TexasHoldem {
     this.board.push(river);
 
     return this.postBoard('river')
-      .flatMap(() => this.doBettingRound());
+      .flatMap(() => this.doBettingRound('river'));
   }
 
   // Private: For each player, create a 7-card hand by combining their hole
@@ -240,17 +240,19 @@ class TexasHoldem {
 
   // Private: Handles the logic for a round of betting.
   //
+  // round - The name of the betting round, e.g., 'preflop', 'flop', 'turn'
+  //
   // Returns an {Observable} sequence of actions (e.g, 'check', 'fold') taken
   // by players during the round
-  doBettingRound(isPreflop) {
-    this.playersInHand = this.orderPlayers(this.playersInHand, isPreflop ? 3 : 1);
+  doBettingRound(round) {
+    this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, round);
     let previousActions = [];
 
     // NB: Take the players remaining in the hand, in order, and map each to an
     // action for that round. We need to use `defer` to ensure the sequence
     // doesn't continue until the previous action is completed, and `reduce` to
     // turn the resulting sequence into a single array.
-    return rx.Observable.fromArray(this.playersInHand)
+    return rx.Observable.fromArray(this.orderedPlayers)
       .concatMap((player) => rx.Observable.defer(() => {
         console.log(`Previous actions: ${JSON.stringify(previousActions)}`);
         return PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions)
@@ -261,18 +263,6 @@ class TexasHoldem {
         return acc;
       }, [])
       .do((result) => console.log(`Got result: ${JSON.stringify(result)}`));
-  }
-
-  orderPlayers(players, offset) {
-    let firstToAct = (this.dealerButton + offset) % players.length;
-    let orderedPlayers = [];
-
-    for (let index = 0; index < players.length; index++) {
-      let actionIndex = (firstToAct + index) % players.length;
-      orderedPlayers.push(players[actionIndex]);
-    }
-
-    return orderedPlayers;
   }
 }
 
