@@ -21,8 +21,11 @@ A bot that will deal Texas Hold'em games in a Slack channel!
   - [x] Render the cards as an image attachment
   - [x] Upload to imgur
 - [x] Determining the best hand
+- [x] Logic for player order
+- [x] Programmable bot classes
 - [ ] Logic for a betting round
-- [ ] Potential AI plug-in?
+- [ ] Logic for player's chip stacks
+- [ ] Handle split pots
 - [ ] Infinity other things
 
 ### Dependencies
