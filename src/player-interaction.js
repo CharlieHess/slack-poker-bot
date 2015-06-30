@@ -38,12 +38,13 @@ class PlayerInteraction {
   // messages - An {Observable} representing new messages sent to the channel
   // channel - The {Channel} object, used for posting messages
   // player - The player being polled
+  // previousActions - An array of the previous player actions for this round
   // scheduler - (Optional) The scheduler to use for timing events
   // timeout - (Optional) The amount of time to conduct polling, in seconds
   //
   // Returns an {Observable} indicating the action the player took. If time
   // expires, a 'timeout' action is returned.
-  static getActionForPlayer(messages, channel, player, scheduler=rx.Scheduler.timeout, timeout=30) {
+  static getActionForPlayer(messages, channel, player, previousActions, scheduler=rx.Scheduler.timeout, timeout=30) {
     let intro = `${player.name}, it's your turn to act.`;
     let formatMessage = (t) => `Respond with *(C)heck*, *(F)old*, or *(B)et* / *(R)aise* in the next ${t} seconds.`;
     let {timeExpired, message} = PlayerInteraction.postMessageWithTimeout(channel, intro,
@@ -62,7 +63,7 @@ class PlayerInteraction {
     // action (only applicable to bots)
     return rx.Observable
       .merge(playerAction, timeExpired.map(() => 'timeout'),
-        player.isBot ? player.getAction() : rx.Observable.never())
+        player.isBot ? player.getAction(previousActions) : rx.Observable.never())
       .take(1)
       .do((action) => {
         disp.dispose();

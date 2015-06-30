@@ -12,7 +12,8 @@ class WeakBot {
   }
 
   // LOL WEAK
-  getAction() {
-    return rx.Observable.timer(500).map(() => 'fold');
+  getAction(previousActions) {
+    let action = previousActions.indexOf('bet') > -1 ? 'fold' : 'check';
+    return rx.Observable.timer(500).map(() => action);
   }
 };

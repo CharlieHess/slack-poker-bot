@@ -8,7 +8,7 @@ A bot that will deal Texas Hold'em games in a Slack channel!
 1. `npm install`
 1. `node src/main.js`
 1. To start a game, `@<your_bot_name>: Deal`
-1. To end a game, `@<your_bot_name> Quit game`
+1. To end a game, `@<your_bot_name>: Quit game`
 
 ### Run Tests
 1. `gulp`
@@ -26,6 +26,7 @@ A bot that will deal Texas Hold'em games in a Slack channel!
 - [ ] Logic for a betting round
 - [ ] Logic for player's chip stacks
 - [ ] Handle split pots
+- [ ] Deployability (Heroku or whatever)
 - [ ] Infinity other things
 
 ### Dependencies
