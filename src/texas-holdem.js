@@ -1,4 +1,5 @@
 const rx = require('rx');
+const _ = require('underscore-plus');
 const textTable = require('text-table');
 const pokerEvaluator = require('poker-evaluator');
 
@@ -30,6 +31,7 @@ class TexasHoldem {
 
     this.deck = new Deck();
     this.quitGame = new rx.Subject();
+    this.handEnded = new rx.Subject();
     this.disp = new rx.CompositeDisposable();
   }
 
@@ -59,7 +61,7 @@ class TexasHoldem {
   // Private: Plays a single hand of hold'em. The sequence goes like this:
   // 1. Clear the board and player hands
   // 2. Shuffle the deck and give players their cards
-  // 3. TODO: Do a pre-flop betting round
+  // 3. Do a pre-flop betting round
   // 4. Deal the flop and do a betting round
   // 5. Deal the turn and do a betting round
   // 6. Deal the river and do a final betting round
@@ -70,7 +72,7 @@ class TexasHoldem {
     this.board = [];
     this.playerHands = {};
 
-    this.assignBlinds();
+    this.setupPlayers();
     this.deck.shuffle();
     this.dealPlayerCards();
 
@@ -87,7 +89,15 @@ class TexasHoldem {
           this.river().flatMap(handFinished))));
   }
 
-  assignBlinds() {
+  // Private: Adds players to the hand if they have enough chips and posts
+  // blinds.
+  //
+  // Returns nothing
+  setupPlayers() {
+    for (let player of this.players) {
+      player.isInHand = true;
+    }
+
     this.smallBlind = (this.dealerButton + 1) % this.players.length;
     this.bigBlind = (this.smallBlind + 1) % this.players.length;
   }
@@ -243,8 +253,7 @@ class TexasHoldem {
   //
   // round - The name of the betting round, e.g., 'preflop', 'flop', 'turn'
   //
-  // Returns an {Observable} sequence of actions (e.g, 'check', 'fold') taken
-  // by players during the round
+  // Returns an array of actions taken during the round
   doBettingRound(round) {
     this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, round);
     let previousActions = [];
@@ -253,6 +262,7 @@ class TexasHoldem {
     // action for that round. We use `reduce` to turn the resulting sequence
     // into a single array.
     return rx.Observable.fromArray(this.orderedPlayers)
+      .where((player) => player.isInHand)
       .concatMap((player) => this.deferredActionForPlayer(player, previousActions))
       .reduce((acc, x) => {
         acc.push(x);
@@ -266,21 +276,45 @@ class TexasHoldem {
   //
   // player - The player being polled
   // previousActions - An array of actions taken by the previous players
+  // timeToPause - (Optional) The time to wait before polling, in ms
   //
   // Returns an {Observable} containing the player's action
-  deferredActionForPlayer(player, previousActions) {
+  deferredActionForPlayer(player, previousActions, timeToPause=1000) {
     return rx.Observable.defer(() => {
 
       // Display player position and who's next to act before polling.
       this.displayHandStatus(this.players, player);
 
-      return rx.Observable.timer(1000).flatMap(() =>
+      return rx.Observable.timer(timeToPause).flatMap(() =>
         PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions)
-          .do((action) => {
-            player.lastAction = action;
-            previousActions.push(action);
-          }));
+          .do((action) => this.onPlayerAction(player, action, previousActions)));
     });
+  }
+
+  // Private: Occurs after a player takes an action. We need to save that
+  // action, and possibly end the hand if only one player is left.
+  //
+  // player - The player who acted
+  // action - A string describing the action, e.g., 'check', 'fold'
+  // previousActions - An array of actions that should be updated
+  //
+  // Returns nothing
+  onPlayerAction(player, action, previousActions) {
+    player.lastAction = action;
+
+    if (action === 'fold') {
+      player.isInHand = false;
+
+      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
+
+      if (playersRemaining.length === 1) {
+        let result = { winner: playersRemaining[0] };
+        console.log(`Hand ended, ${result.winner.name} wins`);
+        this.handEnded.onNext(result);
+      }
+    }
+
+    previousActions.push(action);
   }
 
   // Private: Displays a fixed-width text table showing all of the players in
@@ -300,6 +334,9 @@ class TexasHoldem {
       let player = players[idx];
       let turnIndicator = player === actingPlayer ? '→ ' : '  ';
       row.push(`${turnIndicator}${player.name}`);
+
+      let handIndicator = player.isInHand ? '🂠' : ' ';
+      row.push(handIndicator);
 
       let dealerIndicator = idx === this.dealerButton ? 'Ⓓ' : ' ';
       row.push(dealerIndicator);

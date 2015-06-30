@@ -1,5 +1,5 @@
 ## Slack Poker Bot
-A bot that will deal Texas Hold'em games in a Slack channel!
+A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in any channel or private group with 2-10 players. PokerBot will deal hands, direct message players with their hole cards, query players (in order) for their action, determine the winning hand, and (eventually) handle the pot.
 
 ![](https://s3.amazonaws.com/f.cl.ly/items/1h0S1x0e2e0t2A1W180u/Image%202015-06-30%20at%2011.07.16%20AM.png)
 
