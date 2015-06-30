@@ -88,8 +88,15 @@ class Bot {
   //
   // players - The players participating in the game
   addBotPlayers(players) {
-    let bot = new WeakBot();
-    players.push(bot);
+    let bot1 = new WeakBot('Phil Hellmuth');
+    // let bot2 = new WeakBot('Doyle Brunson');
+    // let bot3 = new WeakBot('Stu Ungar');
+    // let bot4 = new WeakBot('Phil Ivey');
+
+    players.push(bot1);
+    // players.push(bot2);
+    // players.push(bot3);
+    // players.push(bot4);
   }
 
   // Private: Save which channels and groups this bot is in and log them.

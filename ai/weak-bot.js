@@ -3,9 +3,9 @@ const uuid = require('uuid');
 
 module.exports =
 class WeakBot {
-  constructor() {
+  constructor(name) {
     this.id = uuid.v4();
-    this.name = "Weak Bot";
+    this.name = name;
 
     this.isBot = true;
     this.holeCards = [];
