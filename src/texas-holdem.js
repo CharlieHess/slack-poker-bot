@@ -250,23 +250,37 @@ class TexasHoldem {
     let previousActions = [];
 
     // NB: Take the players remaining in the hand, in order, and map each to an
-    // action for that round. We need to use `defer` to ensure the sequence
-    // doesn't continue until the previous action is completed, and `reduce` to
-    // turn the resulting sequence into a single array.
+    // action for that round. We use `reduce` to turn the resulting sequence
+    // into a single array.
     return rx.Observable.fromArray(this.orderedPlayers)
-      .concatMap((player) => rx.Observable.defer(() => {
-        console.log(`Previous actions: ${JSON.stringify(previousActions)}`);
-
-        this.displayHandStatus(this.players, player);
-
-        return rx.Observable.timer(1000).flatMap(() =>
-          PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions)
-            .do((action) => previousActions.push(action)));
-      }))
+      .concatMap((player) => this.deferredActionForPlayer(player, previousActions))
       .reduce((acc, x) => {
         acc.push(x);
         return acc;
       }, []);
+  }
+
+  // Private: Displays player position and who's next to act, pauses briefly,
+  // then polls the acting player for an action. We use `defer` to ensure the
+  // sequence doesn't continue until the player has responded.
+  //
+  // player - The player being polled
+  // previousActions - An array of actions taken by the previous players
+  //
+  // Returns an {Observable} containing the player's action
+  deferredActionForPlayer(player, previousActions) {
+    return rx.Observable.defer(() => {
+
+      // Display player position and who's next to act before polling.
+      this.displayHandStatus(this.players, player);
+
+      return rx.Observable.timer(1000).flatMap(() =>
+        PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions)
+          .do((action) => {
+            player.lastAction = action;
+            previousActions.push(action);
+          }));
+    });
   }
 
   // Private: Displays a fixed-width text table showing all of the players in
