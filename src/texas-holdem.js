@@ -37,7 +37,7 @@ class TexasHoldem {
   // Returns nothing
   start() {
     // NB: Randomly assign the dealer button to start
-    this.dealerButton = Math.floor(Math.random() * (this.players.length + 1));
+    this.dealerButton = Math.floor(Math.random() * this.players.length);
 
     this.disp.add(rx.Observable.return(true)
       .flatMap(() => this.playHand())
