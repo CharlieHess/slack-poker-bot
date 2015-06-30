@@ -46,8 +46,8 @@ class PlayerInteraction {
   // expires, a 'timeout' action is returned.
   static getActionForPlayer(messages, channel, player, previousActions, scheduler=rx.Scheduler.timeout, timeout=30) {
     let intro = `${player.name}, it's your turn to act.`;
-    let formatMessage = (t) => `Respond with *(C)heck*, *(F)old*, or *(B)et* / *(R)aise* in the next ${t} seconds.`;
-    let {timeExpired, message} = PlayerInteraction.postMessageWithTimeout(channel, intro,
+    let formatMessage = (t) => PlayerInteraction.buildActionMessage(previousActions, t);
+    let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, intro,
       formatMessage, scheduler, timeout);
 
     // Look for text that conforms to a player action.
@@ -67,7 +67,7 @@ class PlayerInteraction {
       .take(1)
       .do((action) => {
         disp.dispose();
-        message.updateMessage(`${player.name} ${action}s.`);
+        channel.send(`${player.name} ${action}s.`);
       });
   }
 
@@ -94,6 +94,45 @@ class PlayerInteraction {
       .publishLast();
 
     return {timeExpired: timeExpired, message: timeoutMessage};
+  }
+
+  // Private: Builds up a formatted countdown message containing the available
+  // actions.
+  //
+  // previousActions - An array of the previous player actions for this round
+  // timeRemaining - Number of seconds remaining for the player to act
+  //
+  // Returns the formatted string
+  static buildActionMessage(previousActions, timeRemaining) {
+    let availableActions = PlayerInteraction.getAvailableActions(previousActions);
+    let message = 'Respond with\n';
+    for (let action of availableActions) {
+      message += `*(${action.charAt(0).toUpperCase()})${action.slice(1)}*\n`;
+    }
+    message += `in the next ${timeRemaining} seconds.`;
+    return message;
+  }
+
+  // Private: Given an array of actions taken previously in the hand, returns
+  // an array of available actions.
+  //
+  // previousActions - An array of the previous player actions for this round
+  //
+  // Returns an array of strings
+  static getAvailableActions(previousActions) {
+    let availableActions = [];
+
+    // NB: If a bet has been made, call and raise are available.
+    if (previousActions.indexOf('bet') > -1) {
+      availableActions.push('call');
+      availableActions.push('raise');
+    } else {
+      availableActions.push('check');
+      availableActions.push('bet');
+    }
+
+    availableActions.push('fold');
+    return availableActions;
   }
 
   // Private: Maps abbreviated text for a player action to its canonical name.

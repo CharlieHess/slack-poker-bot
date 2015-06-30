@@ -298,8 +298,8 @@ class TexasHoldem {
       let row = [];
 
       let player = players[idx];
-      let actionIndicator = player === actingPlayer ? '→ ' : '  ';
-      row.push(`${actionIndicator}${player.name}`);
+      let turnIndicator = player === actingPlayer ? '→ ' : '  ';
+      row.push(`${turnIndicator}${player.name}`);
 
       let dealerIndicator = idx === this.dealerButton ? 'Ⓓ' : ' ';
       row.push(dealerIndicator);
@@ -308,6 +308,8 @@ class TexasHoldem {
       let smallBlind = idx === this.smallBlind ? 'Ⓢ' : null;
       let blindIndicator = bigBlind || smallBlind || ' ';
       row.push(blindIndicator);
+
+      row.push(player.lastAction || '');
 
       table.push(row);
     }
