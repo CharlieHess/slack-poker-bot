@@ -19,7 +19,7 @@ describe('PlayerOrder', function() {
       assert(players[3] == '3');
     });
 
-    it("should ensure that cards are always dealt to the SB first", function() {
+    it("should always deal cards to the SB first", function() {
       var players = ['DB', 'SB', 'BB', 'UTG'];
       var dealerButton = 0;
       var orderedPlayers = PlayerOrder.determine(players, dealerButton, 'deal');
@@ -28,6 +28,43 @@ describe('PlayerOrder', function() {
       assert(orderedPlayers[1] == 'BB');
       assert(orderedPlayers[2] == 'UTG');
       assert(orderedPlayers[3] == 'DB');
+    });
+
+    it("should skip the blinds during preflop rounds, but deal SB first in the other rounds", function() {
+      var players = ['DB', 'SB', 'BB', 'UTG'];
+      var dealerButton = 0;
+      var orderedPlayers = PlayerOrder.determine(players, dealerButton, 'preflop');
+
+      assert(orderedPlayers[0] == 'UTG');
+      assert(orderedPlayers[1] == 'DB');
+      assert(orderedPlayers[2] == 'SB');
+      assert(orderedPlayers[3] == 'BB');
+
+      orderedPlayers = PlayerOrder.determine(players, dealerButton, 'flop');
+
+      assert(orderedPlayers[0] == 'SB');
+      assert(orderedPlayers[1] == 'BB');
+      assert(orderedPlayers[2] == 'UTG');
+      assert(orderedPlayers[3] == 'DB');
+    });
+
+    it("should handle heads-up play", function() {
+      var players = ['DB', 'SB'];
+      var dealerButton = 0;
+      var orderedPlayers = PlayerOrder.determine(players, dealerButton, 'deal');
+
+      assert(orderedPlayers[0] == 'SB');
+      assert(orderedPlayers[1] == 'DB');
+
+      orderedPlayers = PlayerOrder.determine(players, dealerButton, 'preflop');
+
+      assert(orderedPlayers[0] == 'SB');
+      assert(orderedPlayers[1] == 'DB');
+
+      orderedPlayers = PlayerOrder.determine(players, dealerButton, 'flop');
+
+      assert(orderedPlayers[0] == 'SB');
+      assert(orderedPlayers[1] == 'DB');
     });
   });
 });

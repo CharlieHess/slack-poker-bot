@@ -3,6 +3,12 @@ module.exports = class PlayerOrder {
   // Public: Determines the order for players during a particular round of
   // action. We build up a new array from the source `players`, starting with
   // the first to act and moving in round-robin fashion.
+  //
+  // players - The source array, that will remain unchanged
+  // dealerButton - The index of the dealer button within the `players` array
+  // round - A string describing the round, e.g., 'preflop', 'flop'
+  //
+  // Returns a new array with the players in sorted order
   static determine(players, dealerButton, round) {
     // NB: During the preflop betting round, SB (1) and BB (2) are skipped and
     // we start with UTG (3). Every other round starts with the SB.
@@ -20,4 +26,4 @@ module.exports = class PlayerOrder {
 
     return orderedPlayers;
   }
-}
+};
