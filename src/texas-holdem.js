@@ -1,4 +1,5 @@
 const rx = require('rx');
+const textTable = require('text-table');
 const pokerEvaluator = require('poker-evaluator');
 
 const Deck = require('./deck');
@@ -255,14 +256,50 @@ class TexasHoldem {
     return rx.Observable.fromArray(this.orderedPlayers)
       .concatMap((player) => rx.Observable.defer(() => {
         console.log(`Previous actions: ${JSON.stringify(previousActions)}`);
-        return PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions)
-          .do((action) => previousActions.push(action));
+
+        this.displayHandStatus(this.players, player);
+
+        return rx.Observable.timer(1000).flatMap(() =>
+          PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions)
+            .do((action) => previousActions.push(action)));
       }))
       .reduce((acc, x) => {
         acc.push(x);
         return acc;
-      }, [])
-      .do((result) => console.log(`Got result: ${JSON.stringify(result)}`));
+      }, []);
+  }
+
+  // Private: Displays a fixed-width text table showing all of the players in
+  // the hand, relevant position information (blinds, dealer button),
+  // information about the player's bet, and an indicator of who's next to act.
+  //
+  // players - The players in the hand
+  // actingPlayer - The player taking action
+  //
+  // Returns nothing
+  displayHandStatus(players, actingPlayer) {
+    let table = [];
+
+    for (let idx = 0; idx < players.length; idx++) {
+      let row = [];
+
+      let player = players[idx];
+      let actionIndicator = player === actingPlayer ? '→ ' : '  ';
+      row.push(`${actionIndicator}${player.name}`);
+
+      let dealerIndicator = idx === this.dealerButton ? 'Ⓓ' : ' ';
+      row.push(dealerIndicator);
+
+      let bigBlind = idx === this.bigBlind ? 'Ⓑ' : null;
+      let smallBlind = idx === this.smallBlind ? 'Ⓢ' : null;
+      let blindIndicator = bigBlind || smallBlind || ' ';
+      row.push(blindIndicator);
+
+      table.push(row);
+    }
+
+    let fixedWidthTable = `\`\`\`${textTable(table)}\`\`\``;
+    this.channel.send(fixedWidthTable);
   }
 }
 

@@ -17,6 +17,7 @@
     "promisify-node": "^0.1.5",
     "rx": "^2.5.2",
     "slack-client": "^1.4.1",
+    "text-table": "^0.2.0",
     "underscore-plus": "^1.6.6",
     "uuid": "^2.0.1"
   }
