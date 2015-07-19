@@ -83,12 +83,10 @@ class TexasHoldem {
         this.dealerButton = (this.dealerButton + 1) % this.players.length;
       });
 
-    let hand = this.doBettingRound('preflop').flatMap(() =>
+    return this.doBettingRound('preflop').flatMap(() =>
       this.flop().flatMap(() =>
         this.turn().flatMap(() =>
           this.river().flatMap(handFinished))));
-
-    return hand.takeUntil(this.handEnded);
   }
 
   // Private: Handles the logic for a round of betting.
@@ -104,45 +102,16 @@ class TexasHoldem {
     // NB: Take the players remaining in the hand, in order, and map each to an
     // action for that round. We use `reduce` to turn the resulting sequence
     // into a single array.
-    let cycle = rx.Observable.fromArray(this.orderedPlayers)
+    return rx.Observable.fromArray(this.orderedPlayers)
       .where((player) => player.isInHand)
       .concatMap((player) => this.deferredActionForPlayer(player, previousActions))
+      .repeat()
       .reduce((acc, x) => {
-        this.onPlayerAction(x.player, x.action);
+        console.log(`${x.player.name} ${x.action}s`);
         acc.push(x);
         return acc;
       }, [])
-      .do((results) => {
-        console.log(results.length);
-        this.roundEnded.onNext(false);
-      });
-
-    let ret = this.roundEnded.flatMap((ended) => {
-      if (!ended) return cycle;
-      else return rx.Observable.return(ended);
-    }).publish();
-    
-    ret.connect();
-    this.roundEnded.onNext(false);
-    return ret;
-  }
-
-  onPlayerAction(player, action) {
-    console.log(`${player.name} ${action}s`);
-
-    if (action === 'fold') {
-      player.isInHand = false;
-
-      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
-
-      if (playersRemaining.length === 1) {
-        let result = { winner: playersRemaining[0] };
-        console.log(`Hand ended, ${result.winner.name} wins`);
-
-        this.roundEnded.onNext(true);
-        this.handEnded.onNext(result);
-      }
-    }
+      .takeUntil(this.roundEnded);
   }
 
   // Private: Displays player position and who's next to act, pauses briefly,
@@ -162,12 +131,35 @@ class TexasHoldem {
 
       return rx.Observable.timer(timeToPause).flatMap(() =>
         PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions)
-          .map((action) => {
-            player.lastAction = action;
-            previousActions[player] = action;
-            return {player: player, action: action};
-          }));
+          .map((action) => this.onPlayerAction(player, action, previousActions)));
     });
+  }
+
+  // Private: Occurs after a player takes an action. We need to save that
+  // action, and possibly end the hand if only one player is left.
+  //
+  // player - The player who acted
+  // action - A string describing the action, e.g., 'check', 'fold'
+  // previousActions - A map of players to their most recent action
+  //
+  // Returns nothing
+  onPlayerAction(player, action, previousActions) {
+    player.lastAction = action;
+    previousActions[player] = action;
+
+    if (action === 'fold') {
+      player.isInHand = false;
+
+      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
+
+      if (playersRemaining.length === 1) {
+        let result = { winner: playersRemaining[0] };
+        console.log(`Hand ended, ${result.winner.name} wins`);
+
+        this.roundEnded.onNext(result);
+      }
+    }
+    return {player: player, action: action};
   }
 
   // Private: Adds players to the hand if they have enough chips and posts
