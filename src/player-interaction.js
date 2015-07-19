@@ -1,4 +1,5 @@
 const rx = require('rx');
+const _ = require('underscore-plus');
 
 class PlayerInteraction {
   // Public: Poll players that want to join the game during a specified period
@@ -116,14 +117,15 @@ class PlayerInteraction {
   // Private: Given an array of actions taken previously in the hand, returns
   // an array of available actions.
   //
-  // previousActions - An array of the previous player actions for this round
+  // previousActions - A map of players to their most recent action
   //
   // Returns an array of strings
   static getAvailableActions(previousActions) {
+    let actions = _.values(previousActions);
     let availableActions = [];
 
     // NB: If a bet has been made, call and raise are available.
-    if (previousActions.indexOf('bet') > -1) {
+    if (actions.indexOf('bet') > -1) {
       availableActions.push('call');
       availableActions.push('raise');
     } else {

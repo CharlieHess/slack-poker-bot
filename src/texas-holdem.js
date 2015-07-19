@@ -40,7 +40,7 @@ class TexasHoldem {
   // Returns nothing
   start() {
     // NB: Randomly assign the dealer button to start
-    this.dealerButton = Math.floor(Math.random() * this.players.length);
+    this.dealerButton = 0;//Math.floor(Math.random() * this.players.length);
 
     this.disp.add(rx.Observable.return(true)
       .flatMap(() => this.playHand())
@@ -87,6 +87,79 @@ class TexasHoldem {
       this.flop().flatMap(() =>
         this.turn().flatMap(() =>
           this.river().flatMap(handFinished))));
+  }
+
+  // Private: Handles the logic for a round of betting.
+  //
+  // round - The name of the betting round, e.g., 'preflop', 'flop', 'turn'
+  //
+  // Returns an array of actions taken during the round
+  doBettingRound(round) {
+    this.roundEnded = new rx.Subject();
+    this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, round);
+    let previousActions = {};
+
+    // NB: Take the players remaining in the hand, in order, and map each to an
+    // action for that round. We use `reduce` to turn the resulting sequence
+    // into a single array.
+    return rx.Observable.fromArray(this.orderedPlayers)
+      .where((player) => player.isInHand)
+      .concatMap((player) => this.deferredActionForPlayer(player, previousActions))
+      .repeat()
+      .reduce((acc, x) => {
+        console.log(`${x.player.name} ${x.action}s`);
+        acc.push(x);
+        return acc;
+      }, [])
+      .takeUntil(this.roundEnded);
+  }
+
+  // Private: Displays player position and who's next to act, pauses briefly,
+  // then polls the acting player for an action. We use `defer` to ensure the
+  // sequence doesn't continue until the player has responded.
+  //
+  // player - The player being polled
+  // previousActions - A map of players to their most recent action
+  // timeToPause - (Optional) The time to wait before polling, in ms
+  //
+  // Returns an {Observable} containing the player's action
+  deferredActionForPlayer(player, previousActions, timeToPause=1000) {
+    return rx.Observable.defer(() => {
+
+      // Display player position and who's next to act before polling.
+      this.displayHandStatus(this.players, player);
+
+      return rx.Observable.timer(timeToPause).flatMap(() =>
+        PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions)
+          .map((action) => this.onPlayerAction(player, action, previousActions)));
+    });
+  }
+
+  // Private: Occurs after a player takes an action. We need to save that
+  // action, and possibly end the hand if only one player is left.
+  //
+  // player - The player who acted
+  // action - A string describing the action, e.g., 'check', 'fold'
+  // previousActions - A map of players to their most recent action
+  //
+  // Returns nothing
+  onPlayerAction(player, action, previousActions) {
+    player.lastAction = action;
+    previousActions[player] = action;
+
+    if (action === 'fold') {
+      player.isInHand = false;
+
+      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
+
+      if (playersRemaining.length === 1) {
+        let result = { winner: playersRemaining[0] };
+        console.log(`Hand ended, ${result.winner.name} wins`);
+
+        this.roundEnded.onNext(result);
+      }
+    }
+    return {player: player, action: action};
   }
 
   // Private: Adds players to the hand if they have enough chips and posts
@@ -247,74 +320,6 @@ class TexasHoldem {
       // just going to wait a second before continuing.
       return rx.Observable.timer(1000);
     }).take(1);
-  }
-
-  // Private: Handles the logic for a round of betting.
-  //
-  // round - The name of the betting round, e.g., 'preflop', 'flop', 'turn'
-  //
-  // Returns an array of actions taken during the round
-  doBettingRound(round) {
-    this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, round);
-    let previousActions = [];
-
-    // NB: Take the players remaining in the hand, in order, and map each to an
-    // action for that round. We use `reduce` to turn the resulting sequence
-    // into a single array.
-    return rx.Observable.fromArray(this.orderedPlayers)
-      .where((player) => player.isInHand)
-      .concatMap((player) => this.deferredActionForPlayer(player, previousActions))
-      .reduce((acc, x) => {
-        acc.push(x);
-        return acc;
-      }, []);
-  }
-
-  // Private: Displays player position and who's next to act, pauses briefly,
-  // then polls the acting player for an action. We use `defer` to ensure the
-  // sequence doesn't continue until the player has responded.
-  //
-  // player - The player being polled
-  // previousActions - An array of actions taken by the previous players
-  // timeToPause - (Optional) The time to wait before polling, in ms
-  //
-  // Returns an {Observable} containing the player's action
-  deferredActionForPlayer(player, previousActions, timeToPause=1000) {
-    return rx.Observable.defer(() => {
-
-      // Display player position and who's next to act before polling.
-      this.displayHandStatus(this.players, player);
-
-      return rx.Observable.timer(timeToPause).flatMap(() =>
-        PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions)
-          .do((action) => this.onPlayerAction(player, action, previousActions)));
-    });
-  }
-
-  // Private: Occurs after a player takes an action. We need to save that
-  // action, and possibly end the hand if only one player is left.
-  //
-  // player - The player who acted
-  // action - A string describing the action, e.g., 'check', 'fold'
-  // previousActions - An array of actions that should be updated
-  //
-  // Returns nothing
-  onPlayerAction(player, action, previousActions) {
-    player.lastAction = action;
-
-    if (action === 'fold') {
-      player.isInHand = false;
-
-      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
-
-      if (playersRemaining.length === 1) {
-        let result = { winner: playersRemaining[0] };
-        console.log(`Hand ended, ${result.winner.name} wins`);
-        this.handEnded.onNext(result);
-      }
-    }
-
-    previousActions.push(action);
   }
 
   // Private: Displays a fixed-width text table showing all of the players in
