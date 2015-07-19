@@ -76,17 +76,30 @@ class TexasHoldem {
     this.deck.shuffle();
     this.dealPlayerCards();
 
-    let handFinished = () =>
-      this.evaluateHands().do((result) => {
-        this.channel.send(`${result.winner.name} wins with ${result.handName}, ${result.hand.toString()}`);
+    let handEnded = new rx.Subject();
 
-        this.dealerButton = (this.dealerButton + 1) % this.players.length;
-      });
+    let handFinished = (result) => {
+      this.channel.send(`${result.winner.name} wins with ${result.handName}, ${result.hand.toString()}`);
+      this.dealerButton = (this.dealerButton + 1) % this.players.length;
+      handEnded.onNext(true);
+      return rx.Observable.return(result);
+    };
 
-    return this.doBettingRound('preflop').flatMap(() =>
-      this.flop().flatMap(() =>
-        this.turn().flatMap(() =>
-          this.river().flatMap(handFinished))));
+    let flop = () => {
+      let flop = [this.deck.drawCard(), this.deck.drawCard(), this.deck.drawCard()];
+      this.board = flop;
+
+      return this.postBoard('flop')
+        .flatMap(() => this.doBettingRound('flop')).subscribe((result) => {
+          return !result.handEnded ? this.evaluateHands() : handFinished();
+        });
+    };
+
+    this.doBettingRound('preflop').subscribe((result) => {
+        return !result.handEnded ? flop() : handFinished();
+    });
+
+    return handEnded;
   }
 
   // Private: Handles the logic for a round of betting.
@@ -102,16 +115,37 @@ class TexasHoldem {
     // NB: Take the players remaining in the hand, in order, and map each to an
     // action for that round. We use `reduce` to turn the resulting sequence
     // into a single array.
-    return rx.Observable.fromArray(this.orderedPlayers)
+    let queryPlayers = rx.Observable.fromArray(this.orderedPlayers)
       .where((player) => player.isInHand)
       .concatMap((player) => this.deferredActionForPlayer(player, previousActions))
       .repeat()
       .reduce((acc, x) => {
-        console.log(`${x.player.name} ${x.action}s`);
+        this.onPlayerAction(x.player, x.action, acc);
         acc.push(x);
         return acc;
       }, [])
-      .takeUntil(this.roundEnded);
+      .takeUntil(this.roundEnded)
+      .publish();
+
+    queryPlayers.connect();
+    return this.roundEnded;
+  }
+
+  onPlayerAction(player, action, previousActions) {
+    console.log(`${previousActions.length}: ${player.name} ${action}s`);
+
+    if (action === 'fold') {
+      player.isInHand = false;
+
+      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
+
+      if (playersRemaining.length === 1) {
+        let result = { handEnded: true, winner: playersRemaining[0] };
+        console.log(`Hand ended, ${result.winner.name} wins`);
+
+        this.roundEnded.onNext(result);
+      }
+    }
   }
 
   // Private: Displays player position and who's next to act, pauses briefly,
@@ -131,35 +165,12 @@ class TexasHoldem {
 
       return rx.Observable.timer(timeToPause).flatMap(() =>
         PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions)
-          .map((action) => this.onPlayerAction(player, action, previousActions)));
+          .map((action) => {
+            player.lastAction = action;
+            previousActions[player] = action;
+            return {player: player, action: action};
+          }));
     });
-  }
-
-  // Private: Occurs after a player takes an action. We need to save that
-  // action, and possibly end the hand if only one player is left.
-  //
-  // player - The player who acted
-  // action - A string describing the action, e.g., 'check', 'fold'
-  // previousActions - A map of players to their most recent action
-  //
-  // Returns nothing
-  onPlayerAction(player, action, previousActions) {
-    player.lastAction = action;
-    previousActions[player] = action;
-
-    if (action === 'fold') {
-      player.isInHand = false;
-
-      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
-
-      if (playersRemaining.length === 1) {
-        let result = { winner: playersRemaining[0] };
-        console.log(`Hand ended, ${result.winner.name} wins`);
-
-        this.roundEnded.onNext(result);
-      }
-    }
-    return {player: player, action: action};
   }
 
   // Private: Adds players to the hand if they have enough chips and posts
