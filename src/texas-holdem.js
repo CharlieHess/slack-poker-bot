@@ -31,22 +31,20 @@ class TexasHoldem {
 
     this.deck = new Deck();
     this.quitGame = new rx.Subject();
-    this.handEnded = new rx.Subject();
-    this.disp = new rx.CompositeDisposable();
   }
 
   // Public: Starts a new game.
   //
-  // Returns nothing
+  // Returns a {Disposable} that will end this game early
   start() {
     // NB: Randomly assign the dealer button to start
-    this.dealerButton = 0;//Math.floor(Math.random() * this.players.length);
+    this.dealerButton = Math.floor(Math.random() * this.players.length);
 
-    this.disp.add(rx.Observable.return(true)
+    return rx.Observable.return(true)
       .flatMap(() => this.playHand())
       .repeat()
       .takeUntil(this.quitGame)
-      .subscribe());
+      .subscribe();
   }
 
   // Public: Ends the current game immediately and disposes all resources
@@ -55,7 +53,6 @@ class TexasHoldem {
   // Returns nothing
   quit() {
     this.quitGame.onNext();
-    this.disp.dispose();
   }
 
   // Private: Plays a single hand of hold'em. The sequence goes like this:
@@ -78,34 +75,62 @@ class TexasHoldem {
 
     let handEnded = new rx.Subject();
 
-    let handFinished = (result) => {
-      let message = `${result.winner.name} wins`;
-      if (result.hand) {
-        message += ` with ${result.handName}, ${result.hand.toString()}`;
-      }
-      this.channel.send(message);
-      this.dealerButton = (this.dealerButton + 1) % this.players.length;
-      handEnded.onNext(true);
-      handEnded.onCompleted();
-    };
-
-    let flop = () => {
-      let flop = [this.deck.drawCard(), this.deck.drawCard(), this.deck.drawCard()];
-      this.board = flop;
-
-      this.postBoard('flop').subscribe(() =>
-        this.doBettingRound('flop').subscribe((result) => {
-          if (!result.handEnded) {
-            result = this.evaluateHands();
-          }
-          handFinished(result);
-        }));
-    };
-
     this.doBettingRound('preflop').subscribe((result) =>
-        !result.handEnded ? flop() : handFinished(result));
+      result.isHandComplete ?
+        this.endHand(handEnded, result) :
+        this.flop(handEnded));
 
     return handEnded;
+  }
+
+  flop(handEnded) {
+    let flop = [this.deck.drawCard(), this.deck.drawCard(), this.deck.drawCard()];
+    this.board = flop;
+
+    this.postBoard('flop').subscribe(() =>
+      this.doBettingRound('flop').subscribe((result) =>
+        result.isHandComplete ?
+          this.endHand(handEnded, result) :
+          this.turn(handEnded)));
+  }
+
+  turn(handEnded) {
+    this.deck.drawCard(); // Burn one
+    let turn = this.deck.drawCard();
+    this.board.push(turn);
+
+    this.postBoard('turn').subscribe(() =>
+      this.doBettingRound('turn').subscribe((result) =>
+        result.isHandComplete ?
+          this.endHand(handEnded, result) :
+          this.river(handEnded)));
+  }
+
+  river(handEnded) {
+    this.deck.drawCard(); // Burn one
+    let river = this.deck.drawCard();
+    this.board.push(river);
+
+    this.postBoard('river').subscribe(() =>
+      this.doBettingRound('river').subscribe((result) => {
+        // Still no winner? Time for the showdown.
+        if (!result.isHandComplete) {
+          result = this.evaluateHands();
+        }
+        this.endHand(handEnded, result);
+      }));
+  }
+
+  endHand(handEnded, result) {
+    let message = `${result.winner.name} wins`;
+    if (result.hand) {
+      message += ` with ${result.handName}, ${result.hand.toString()}`;
+    }
+    this.channel.send(message);
+    this.dealerButton = (this.dealerButton + 1) % this.players.length;
+
+    handEnded.onNext(true);
+    handEnded.onCompleted();
   }
 
   // Private: Handles the logic for a round of betting.
@@ -137,32 +162,6 @@ class TexasHoldem {
     return this.roundEnded;
   }
 
-  onPlayerAction(player, action, previousActions) {
-    console.log(`${previousActions.length}: ${player.name} ${action}s`);
-
-    if (action === 'fold') {
-      player.isInHand = false;
-
-      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
-
-      if (playersRemaining.length === 1) {
-        let result = { handEnded: true, winner: playersRemaining[0] };
-        console.log(`Hand ended, ${result.winner.name} wins`);
-
-        this.roundEnded.onNext(result);
-      }
-    } else if (action === 'check') {
-      let everyoneChecked = _.every(previousActions, (x) => x.action === 'check');
-      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
-      let everyoneHadATurn = (previousActions.length + 1) % playersRemaining.length === 0;
-
-      if (everyoneChecked && everyoneHadATurn) {
-        let result = { handEnded: false };
-        this.roundEnded.onNext(result);
-      }
-    }
-  }
-
   // Private: Displays player position and who's next to act, pauses briefly,
   // then polls the acting player for an action. We use `defer` to ensure the
   // sequence doesn't continue until the player has responded.
@@ -186,6 +185,30 @@ class TexasHoldem {
             return {player: player, action: action};
           }));
     });
+  }
+
+  onPlayerAction(player, action, previousActions) {
+    console.log(`${previousActions.length}: ${player.name} ${action}s`);
+
+    if (action === 'fold') {
+      player.isInHand = false;
+
+      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
+
+      if (playersRemaining.length === 1) {
+        let result = { isHandComplete: true, winner: playersRemaining[0] };
+        this.roundEnded.onNext(result);
+      }
+    } else if (action === 'check') {
+      let everyoneChecked = _.every(previousActions, (x) => x.action === 'check');
+      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
+      let everyoneHadATurn = (previousActions.length + 1) % playersRemaining.length === 0;
+
+      if (everyoneChecked && everyoneHadATurn) {
+        let result = { isHandComplete: false };
+        this.roundEnded.onNext(result);
+      }
+    }
   }
 
   // Private: Adds players to the hand if they have enough chips and posts
@@ -225,41 +248,6 @@ class TexasHoldem {
         player.holeCards = this.playerHands[player.id];
       }
     }
-  }
-
-  // Private: Handles the flop and its subsequent round of betting.
-  //
-  // Returns an {Observable} sequence of player actions taken during the flop
-  flop() {
-    let flop = [this.deck.drawCard(), this.deck.drawCard(), this.deck.drawCard()];
-    this.board = flop;
-
-    return this.postBoard('flop')
-      .flatMap(() => this.doBettingRound('flop'));
-  }
-
-  // Private: Handles the turn and its subsequent round of betting.
-  //
-  // Returns an {Observable} sequence of player actions taken during the turn
-  turn() {
-    this.deck.drawCard(); // Burn one
-    let turn = this.deck.drawCard();
-    this.board.push(turn);
-
-    return this.postBoard('turn')
-      .flatMap(() => this.doBettingRound('turn'));
-  }
-
-  // Private: Handles the river and its subsequent round of betting.
-  //
-  // Returns an {Observable} sequence of player actions taken during the river
-  river() {
-    this.deck.drawCard(); // Burn one
-    let river = this.deck.drawCard();
-    this.board.push(river);
-
-    return this.postBoard('river')
-      .flatMap(() => this.doBettingRound('river'));
   }
 
   // Private: For each player, create a 7-card hand by combining their hole
