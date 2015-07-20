@@ -67,7 +67,7 @@ class TexasHoldem {
   // 6. Deal the river and do a final betting round
   // 7. TODO: Decide a winner and send chips their way
   //
-  // Returns an {Observable} containing the result of the hand
+  // Returns an {Observable} signaling the completion of the hand
   playHand() {
     this.board = [];
     this.playerHands = {};
@@ -79,25 +79,30 @@ class TexasHoldem {
     let handEnded = new rx.Subject();
 
     let handFinished = (result) => {
-      this.channel.send(`${result.winner.name} wins with ${result.handName}, ${result.hand.toString()}`);
+      let message = `${result.winner.name} wins`;
+      if (result.hand) {
+        message += ` with ${result.handName}, ${result.hand.toString()}`;
+      }
+      this.channel.send(message);
       this.dealerButton = (this.dealerButton + 1) % this.players.length;
       handEnded.onNext(true);
-      return rx.Observable.return(result);
     };
 
     let flop = () => {
       let flop = [this.deck.drawCard(), this.deck.drawCard(), this.deck.drawCard()];
       this.board = flop;
 
-      return this.postBoard('flop')
-        .flatMap(() => this.doBettingRound('flop')).subscribe((result) => {
-          return !result.handEnded ? this.evaluateHands() : handFinished();
-        });
+      this.postBoard('flop').subscribe(() =>
+        this.doBettingRound('flop').subscribe((result) => {
+          if (!result.handEnded) {
+            result = this.evaluateHands();
+          }
+          handFinished(result);
+        }));
     };
 
-    this.doBettingRound('preflop').subscribe((result) => {
-        return !result.handEnded ? flop() : handFinished();
-    });
+    this.doBettingRound('preflop').subscribe((result) =>
+        !result.handEnded ? flop() : handFinished(result));
 
     return handEnded;
   }
@@ -143,6 +148,15 @@ class TexasHoldem {
         let result = { handEnded: true, winner: playersRemaining[0] };
         console.log(`Hand ended, ${result.winner.name} wins`);
 
+        this.roundEnded.onNext(result);
+      }
+    } else if (action === 'check') {
+      let everyoneChecked = _.every(previousActions, (x) => x.action === 'check');
+      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
+      let everyoneHadATurn = (previousActions.length + 1) % playersRemaining.length === 0;
+
+      if (everyoneChecked && everyoneHadATurn) {
+        let result = { handEnded: false };
         this.roundEnded.onNext(result);
       }
     }
@@ -252,8 +266,8 @@ class TexasHoldem {
   // of hand and its ranking among types. If it's better than the best hand
   // we've seen so far, assign a winner.
   //
-  // Returns an {Observable} with a single value: an object containing the
-  // winning player and information about their hand.
+  // Returns an object containing the winning player and information about
+  // their hand.
   evaluateHands() {
     let bestHand = { handType: 0, handRank: 0 };
     let winner = null;
@@ -273,11 +287,11 @@ class TexasHoldem {
       }
     }
 
-    return rx.Observable.return({
+    return {
       winner: winner,
       hand: this.bestFiveCardHand(cardArray),
       handName: bestHand.handName
-    });
+    };
   }
 
   // Private: Determines the best possible 5-card hand from a 7-card hand. To
