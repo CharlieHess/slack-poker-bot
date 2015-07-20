@@ -24,6 +24,9 @@ A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in a
 - [x] Logic for player order
 - [x] Programmable bot classes
 - [ ] Logic for a betting round
+  - [x] Cycle through players in order, tallying actions
+  - [x] Allow hands to be ended early or with showdown
+  - [ ] More robust processing of player action
 - [ ] Logic for player's chip stacks
 - [ ] Handle split pots
 - [ ] Deployability (Heroku or whatever)
