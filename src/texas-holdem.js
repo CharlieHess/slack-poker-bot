@@ -47,6 +47,7 @@ class TexasHoldem {
 
     return rx.Observable.return(true)
       .flatMap(() => this.playHand()
+        .do(() => console.log(`Ending the hand`))
         .flatMap(() => rx.Observable.timer(5000, this.scheduler)))
       .repeat()
       .takeUntil(this.quitGame)
@@ -105,9 +106,19 @@ class TexasHoldem {
     this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, round);
     for (let player of this.orderedPlayers) {
       player.lastAction = null;
+      player.isBettor = false;
+      player.isBigBlind = false;
     }
 
     let previousActions = {};
+
+    if (round === 'preflop') {
+      let bigBlind = this.players[this.bigBlind];
+      bigBlind.isBettor = true;
+      bigBlind.isBigBlind = true;
+      previousActions[bigBlind.id] = 'bet';
+    }
+
     let roundEnded = new rx.Subject();
 
     // NB: Take the players remaining in the hand, in order, and poll each for
@@ -118,7 +129,7 @@ class TexasHoldem {
       .concatMap((player) => this.deferredActionForPlayer(player, previousActions))
       .repeat()
       .reduce((acc, x) => {
-        this.onPlayerAction(x.player, x.action, acc, roundEnded);
+        this.onPlayerAction(x.player, x.action, previousActions, roundEnded);
         acc.push(x);
         return acc;
       }, [])
@@ -151,7 +162,7 @@ class TexasHoldem {
             // NB: Save the action in various structures and return it with a
             // reference to the acting player.
             player.lastAction = action;
-            previousActions[player] = action;
+            previousActions[player.id] = action;
             return {player: player, action: action};
           }));
     });
@@ -168,28 +179,39 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerAction(player, action, previousActions, roundEnded) {
-    console.log(`${previousActions.length}: ${player.name} ${action}s`);
+    let currentBettor = _.find(this.players, player => player.isBettor);
+    console.log(`${player.name} ${action}s`);
+    console.log(`Current bettor: ${currentBettor.name}`);
 
     if (action === 'fold') {
       player.isInHand = false;
 
-      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
+      let playersRemaining = _.filter(this.players, player => player.isInHand);
 
       if (playersRemaining.length === 1) {
         let result = { isHandComplete: true, winner: playersRemaining[0] };
         roundEnded.onNext(result);
       }
-    } else if (action === 'check') {
-      let everyoneChecked = _.every(previousActions, (x) => x.action === 'check');
-      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
-      let everyoneHadATurn = (previousActions.length + 1) % playersRemaining.length === 0;
+    } else if (action === 'check' || action === 'call') {
+      let everyoneMatched = _.every(_.values(previousActions), x => x === 'check' || x === 'call');
 
-      // TODO: Naive logic, we need to actually check that everyone has called
-      // the bettor
-      if (everyoneChecked && everyoneHadATurn) {
+      let isLastToAct = PlayerOrder.isLastToAct(player, this.orderedPlayers);
+
+      let playersRemaining = _.filter(this.players, player => player.isInHand);
+      let cycleCompleted = (_.keys(previousActions).length + 1) % playersRemaining.length === 0;
+
+      let everyoneHadATurn = currentBettor ? isLastToAct : cycleCompleted;
+      console.log(`All set? ${everyoneMatched}, everyone had a turn? ${everyoneHadATurn}`);
+
+      if (everyoneMatched && everyoneHadATurn) {
+        console.log(`Ending the betting round`);
         let result = { isHandComplete: false };
         roundEnded.onNext(result);
       }
+    } else if (action === 'bet' || action === 'raise') {
+      if (currentBettor) currentBettor.isBettor = false;
+      player.isBettor = true;
+      console.log(`${player.name} is now the bettor`);
     }
   }
 
@@ -265,7 +287,7 @@ class TexasHoldem {
     if (result.hand) {
       message += ` with ${result.handName}: ${result.hand.toString()}.`;
     } else {
-      message += ".";
+      message += '.';
     }
 
     this.channel.send(message);
@@ -282,6 +304,7 @@ class TexasHoldem {
   setupPlayers() {
     for (let player of this.players) {
       player.isInHand = true;
+      player.isBettor = false;
     }
 
     this.smallBlind = (this.dealerButton + 1) % this.players.length;

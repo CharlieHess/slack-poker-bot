@@ -1,3 +1,5 @@
+const _ = require('underscore-plus');
+
 module.exports = class PlayerOrder {
 
   // Public: Determines the order for players during a particular round of
@@ -25,5 +27,21 @@ module.exports = class PlayerOrder {
     }
 
     return orderedPlayers;
+  }
+
+  static isLastToAct(actingPlayer, players) {
+    let playersRemaining = _.filter(players, player => player.isInHand);
+    let currentIndex = playersRemaining.indexOf(actingPlayer);
+
+    let bettor = _.find(playersRemaining, player => player.isBettor);
+    let bettorIndex = playersRemaining.indexOf(bettor);
+
+    let bigBlind =_.find(playersRemaining, player => player.isBigBlind);
+    let bigBlindIndex = playersRemaining.indexOf(bigBlind);
+
+    console.log(`Current player index: ${currentIndex}, bettor index: ${bettorIndex}, big blind index: ${bigBlindIndex}`);
+    return bigBlind ?
+      currentIndex === bigBlindIndex :
+      currentIndex + 1 === bettorIndex;
   }
 };
