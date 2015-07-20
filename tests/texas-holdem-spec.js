@@ -33,13 +33,13 @@ describe('TexasHoldem', function() {
     ];
 
     game = new TexasHoldem(slack, messages, channel, players, scheduler);
-    
+
     // NB: We don't want to create any images during tests, so just wipe this
     // function out entirely.
     game.postBoard = function() { };
   });
 
-  it('should not die a fiery death', function() {
+  it('should handle preflop betting rounds correctly', function() {
     // Start with Phil Ivey (index 0) as dealer.
     game.start(0);
     scheduler.advanceBy(5000);

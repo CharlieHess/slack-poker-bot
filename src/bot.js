@@ -64,6 +64,11 @@ class Bot {
   // channel - The channel where the game will be played
   // players - The players participating in the game
   startGame(messages, channel, players) {
+    if (players.length <= 1) {
+      channel.send('Not enough players for a game, try again later.');
+      return;
+    }
+
     channel.send(`We've got ${players.length} players, let's start the game.`);
     this.game = new TexasHoldem(this.slack, messages, channel, players);
     this.game.start();

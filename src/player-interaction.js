@@ -39,7 +39,7 @@ class PlayerInteraction {
   // messages - An {Observable} representing new messages sent to the channel
   // channel - The {Channel} object, used for posting messages
   // player - The player being polled
-  // previousActions - An array of the previous player actions for this round
+  // previousActions - A map of players to their most recent action
   // scheduler - (Optional) The scheduler to use for timing events
   // timeout - (Optional) The amount of time to conduct polling, in seconds
   //
