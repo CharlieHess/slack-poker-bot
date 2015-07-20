@@ -41,7 +41,8 @@ class TexasHoldem {
     this.dealerButton = Math.floor(Math.random() * this.players.length);
 
     return rx.Observable.return(true)
-      .flatMap(() => this.playHand())
+      .flatMap(() => this.playHand()
+        .flatMap(() => rx.Observable.timer(5000)))
       .repeat()
       .takeUntil(this.quitGame)
       .subscribe();
@@ -90,6 +91,9 @@ class TexasHoldem {
   // Returns an {Observable} signaling the completion of the round
   doBettingRound(round) {
     this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, round);
+    for (let player of this.orderedPlayers) {
+      player.lastAction = null;
+    }
 
     let previousActions = {};
     let roundEnded = new rx.Subject();
