@@ -1,13 +1,12 @@
 const rx = require('rx');
 const _ = require('underscore-plus');
 const textTable = require('text-table');
-const pokerEvaluator = require('poker-evaluator');
 
 const Deck = require('./deck');
 const ImageHelpers = require('./image-helpers');
 const PlayerInteraction = require('./player-interaction');
 const PlayerOrder = require('./player-order');
-const Combinations = require('../util/combinations');
+const HandEvaluator = require('./hand-evaluator');
 
 class TexasHoldem {
   // Public: Creates a new game instance.
@@ -232,7 +231,10 @@ class TexasHoldem {
       this.doBettingRound('river').subscribe((result) => {
         // Still no winner? Time for a showdown.
         if (!result.isHandComplete) {
-          result = this.evaluateHands();
+          result = HandEvaluator.evaluateHands(
+            this.players,
+            this.playerHands,
+            this.board);
         }
         this.endHand(handEnded, result);
       }));
@@ -249,7 +251,7 @@ class TexasHoldem {
   endHand(handEnded, result) {
     let message = `${result.winner.name} wins`;
     if (result.hand) {
-      message += ` with ${result.handName}, ${result.hand.toString()}.`;
+      message += ` with ${result.handName}: ${result.hand.toString()}.`;
     } else {
       message += ".";
     }
@@ -298,63 +300,6 @@ class TexasHoldem {
         player.holeCards = this.playerHands[player.id];
       }
     }
-  }
-
-  // Private: For each player, create a 7-card hand by combining their hole
-  // cards with the board, then pass that to our hand evaluator to get the type
-  // of hand and its ranking among types. If it's better than the best hand
-  // we've seen so far, assign a winner.
-  //
-  // Returns an object containing the winning player and information about
-  // their hand.
-  evaluateHands() {
-    let bestHand = { handType: 0, handRank: 0 };
-    let winner = null;
-    let cardArray = null;
-
-    for (let player of this.players) {
-      let sevenCardHand = [...this.playerHands[player.id], ...this.board];
-      let evalInput = sevenCardHand.map(card => card.toString());
-      let currentHand = pokerEvaluator.evalHand(evalInput);
-
-      // TODO: Handle ties
-      if (currentHand.handType > bestHand.handType ||
-        (currentHand.handType === bestHand.handType && currentHand.handRank > bestHand.handRank)) {
-        bestHand = currentHand;
-        winner = player;
-        cardArray = sevenCardHand;
-      }
-    }
-
-    return {
-      winner: winner,
-      hand: this.bestFiveCardHand(cardArray),
-      handName: bestHand.handName
-    };
-  }
-
-  // Private: Determines the best possible 5-card hand from a 7-card hand. To
-  // do this, we first need to get all the unique 5-card combinations, then
-  // have our hand evaluator rank them.
-  //
-  // Returns an array of five {Card} objects
-  bestFiveCardHand(sevenCardHand) {
-    let fiveCardHands = Combinations.k_combinations(sevenCardHand, 5);
-    let bestHand = { handType: 0, handRank: 0 };
-    let cardArray = null;
-
-    for (let fiveCardHand of fiveCardHands) {
-      let evalInput = fiveCardHand.map(card => card.toString());
-      let currentHand = pokerEvaluator.evalHand(evalInput);
-
-      if (currentHand.handType > bestHand.handType ||
-        (currentHand.handType === bestHand.handType && currentHand.handRank > bestHand.handRank)) {
-        bestHand = currentHand;
-        cardArray = fiveCardHand;
-      }
-    }
-
-    return cardArray;
   }
 
   // Private: Creates an image of the cards on board and posts it to the
