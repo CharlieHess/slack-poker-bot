@@ -36,10 +36,14 @@ class TexasHoldem {
 
   // Public: Starts a new game.
   //
+  // dealerButton - (Optional) The initial index of the dealer button, or null
+  //                to have it randomly assigned
+  //
   // Returns a {Disposable} that will end this game early
-  start() {
-    // NB: Randomly assign the dealer button to start
-    this.dealerButton = Math.floor(Math.random() * this.players.length);
+  start(dealerButton=null) {
+    this.dealerButton = dealerButton === null ?
+      Math.floor(Math.random() * this.players.length) :
+      dealerButton;
 
     return rx.Observable.return(true)
       .flatMap(() => this.playHand()
@@ -55,6 +59,13 @@ class TexasHoldem {
   // Returns nothing
   quit() {
     this.quitGame.onNext();
+  }
+
+  // Public: Get all players still in the current hand.
+  //
+  // Returns an array of players
+  getPlayersInHand() {
+    return _.filter(this.players, player => player.isInHand);
   }
 
   // Private: Plays a single hand of hold'em. The sequence goes like this:

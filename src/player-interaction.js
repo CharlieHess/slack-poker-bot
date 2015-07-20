@@ -147,6 +147,7 @@ class PlayerInteraction {
 
     switch (text.toLowerCase()) {
     case 'c':
+    case 'call':
     case 'check':
       return 'check';
     case 'f':
@@ -154,9 +155,10 @@ class PlayerInteraction {
       return 'fold';
     case 'b':
     case 'bet':
+      return 'bet';
     case 'r':
     case 'raise':
-      return 'bet';
+      return 'raise';
     default:
       return '';
     }
