@@ -1,11 +1,11 @@
 const rx = require('rx');
 const _ = require('underscore-plus');
-const textTable = require('text-table');
 
 const Deck = require('./deck');
 const ImageHelpers = require('./image-helpers');
 const PlayerInteraction = require('./player-interaction');
 const PlayerOrder = require('./player-order');
+const PlayerStatus = require('./player-status');
 const HandEvaluator = require('./hand-evaluator');
 
 class TexasHoldem {
@@ -131,7 +131,8 @@ class TexasHoldem {
     return rx.Observable.defer(() => {
 
       // Display player position and who's next to act before polling.
-      this.displayHandStatus(this.players, player);
+      PlayerStatus.displayHandStatus(this.channel, this.players, player,
+        this.dealerButton, this.bigBlind, this.smallBlind);
 
       return rx.Observable.timer(timeToPause, this.scheduler).flatMap(() =>
         PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions, this.scheduler)
@@ -329,44 +330,6 @@ class TexasHoldem {
       // just going to wait a second before continuing.
       return rx.Observable.timer(1000, this.scheduler);
     }).take(1);
-  }
-
-  // Private: Displays a fixed-width text table showing all of the players in
-  // the hand, relevant position information (blinds, dealer button),
-  // information about the player's bet, and an indicator of who's next to act.
-  //
-  // players - The players in the hand
-  // actingPlayer - The player taking action
-  //
-  // Returns nothing
-  displayHandStatus(players, actingPlayer) {
-    let table = [];
-
-    for (let idx = 0; idx < players.length; idx++) {
-      let row = [];
-
-      let player = players[idx];
-      let turnIndicator = player === actingPlayer ? '→ ' : '  ';
-      row.push(`${turnIndicator}${player.name}`);
-
-      let handIndicator = player.isInHand ? '🂠' : ' ';
-      row.push(handIndicator);
-
-      let dealerIndicator = idx === this.dealerButton ? 'Ⓓ' : ' ';
-      row.push(dealerIndicator);
-
-      let bigBlind = idx === this.bigBlind ? 'Ⓑ' : null;
-      let smallBlind = idx === this.smallBlind ? 'Ⓢ' : null;
-      let blindIndicator = bigBlind || smallBlind || ' ';
-      row.push(blindIndicator);
-
-      row.push(player.lastAction || '');
-
-      table.push(row);
-    }
-
-    let fixedWidthTable = `\`\`\`${textTable(table)}\`\`\``;
-    this.channel.send(fixedWidthTable);
   }
 }
 
