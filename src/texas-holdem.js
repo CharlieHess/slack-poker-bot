@@ -16,11 +16,13 @@ class TexasHoldem {
   // messages - An {Observable} representing messages posted to the channel
   // channel - The channel where the game will be played
   // players - The players participating in the game
-  constructor(slack, messages, channel, players) {
+  // scheduler - (Optional) The scheduler to use for timing events
+  constructor(slack, messages, channel, players, scheduler=rx.Scheduler.timeout) {
     this.slack = slack;
     this.messages = messages;
     this.channel = channel;
     this.players = players;
+    this.scheduler = scheduler;
 
     // Cache the direct message channels for each player as we'll be using
     // them often, and fetching them takes linear time per number of users.
@@ -42,7 +44,7 @@ class TexasHoldem {
 
     return rx.Observable.return(true)
       .flatMap(() => this.playHand()
-        .flatMap(() => rx.Observable.timer(5000)))
+        .flatMap(() => rx.Observable.timer(5000, this.scheduler)))
       .repeat()
       .takeUntil(this.quitGame)
       .subscribe();
@@ -132,9 +134,11 @@ class TexasHoldem {
       // Display player position and who's next to act before polling.
       this.displayHandStatus(this.players, player);
 
-      return rx.Observable.timer(timeToPause).flatMap(() =>
-        PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions)
+      return rx.Observable.timer(timeToPause, this.scheduler).flatMap(() =>
+        PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions, this.scheduler)
           .map((action) => {
+            // NB: Save the action in various structures and return it with a
+            // reference to the acting player.
             player.lastAction = action;
             previousActions[player] = action;
             return {player: player, action: action};
@@ -378,7 +382,7 @@ class TexasHoldem {
 
       // NB: Since we don't have a callback for the message arriving, we're
       // just going to wait a second before continuing.
-      return rx.Observable.timer(1000);
+      return rx.Observable.timer(1000, this.scheduler);
     }).take(1);
   }
 
