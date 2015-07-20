@@ -83,83 +83,34 @@ class TexasHoldem {
     return handEnded;
   }
 
-  flop(handEnded) {
-    let flop = [this.deck.drawCard(), this.deck.drawCard(), this.deck.drawCard()];
-    this.board = flop;
-
-    this.postBoard('flop').subscribe(() =>
-      this.doBettingRound('flop').subscribe((result) =>
-        result.isHandComplete ?
-          this.endHand(handEnded, result) :
-          this.turn(handEnded)));
-  }
-
-  turn(handEnded) {
-    this.deck.drawCard(); // Burn one
-    let turn = this.deck.drawCard();
-    this.board.push(turn);
-
-    this.postBoard('turn').subscribe(() =>
-      this.doBettingRound('turn').subscribe((result) =>
-        result.isHandComplete ?
-          this.endHand(handEnded, result) :
-          this.river(handEnded)));
-  }
-
-  river(handEnded) {
-    this.deck.drawCard(); // Burn one
-    let river = this.deck.drawCard();
-    this.board.push(river);
-
-    this.postBoard('river').subscribe(() =>
-      this.doBettingRound('river').subscribe((result) => {
-        // Still no winner? Time for the showdown.
-        if (!result.isHandComplete) {
-          result = this.evaluateHands();
-        }
-        this.endHand(handEnded, result);
-      }));
-  }
-
-  endHand(handEnded, result) {
-    let message = `${result.winner.name} wins`;
-    if (result.hand) {
-      message += ` with ${result.handName}, ${result.hand.toString()}`;
-    }
-    this.channel.send(message);
-    this.dealerButton = (this.dealerButton + 1) % this.players.length;
-
-    handEnded.onNext(true);
-    handEnded.onCompleted();
-  }
-
   // Private: Handles the logic for a round of betting.
   //
   // round - The name of the betting round, e.g., 'preflop', 'flop', 'turn'
   //
-  // Returns an array of actions taken during the round
+  // Returns an {Observable} signaling the completion of the round
   doBettingRound(round) {
-    this.roundEnded = new rx.Subject();
     this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, round);
-    let previousActions = {};
 
-    // NB: Take the players remaining in the hand, in order, and map each to an
-    // action for that round. We use `reduce` to turn the resulting sequence
-    // into a single array.
+    let previousActions = {};
+    let roundEnded = new rx.Subject();
+
+    // NB: Take the players remaining in the hand, in order, and poll each for
+    // an action. This cycle will be repeated until the round is ended, which
+    // can occur after any player action.
     let queryPlayers = rx.Observable.fromArray(this.orderedPlayers)
       .where((player) => player.isInHand)
       .concatMap((player) => this.deferredActionForPlayer(player, previousActions))
       .repeat()
       .reduce((acc, x) => {
-        this.onPlayerAction(x.player, x.action, acc);
+        this.onPlayerAction(x.player, x.action, acc, roundEnded);
         acc.push(x);
         return acc;
       }, [])
-      .takeUntil(this.roundEnded)
+      .takeUntil(roundEnded)
       .publish();
 
     queryPlayers.connect();
-    return this.roundEnded;
+    return roundEnded;
   }
 
   // Private: Displays player position and who's next to act, pauses briefly,
@@ -187,7 +138,17 @@ class TexasHoldem {
     });
   }
 
-  onPlayerAction(player, action, previousActions) {
+  // Private: Occurs when a player action is received. Check the remaining
+  // players and the previous actions, and possibly end the round of betting or
+  // the hand entirely.
+  //
+  // player - The player who acted
+  // action - The action the player took
+  // previousActions - A map of players to their most recent action
+  // roundEnded - A {Subject} used to end the betting round
+  //
+  // Returns nothing
+  onPlayerAction(player, action, previousActions, roundEnded) {
     console.log(`${previousActions.length}: ${player.name} ${action}s`);
 
     if (action === 'fold') {
@@ -197,18 +158,99 @@ class TexasHoldem {
 
       if (playersRemaining.length === 1) {
         let result = { isHandComplete: true, winner: playersRemaining[0] };
-        this.roundEnded.onNext(result);
+        roundEnded.onNext(result);
       }
     } else if (action === 'check') {
       let everyoneChecked = _.every(previousActions, (x) => x.action === 'check');
       let playersRemaining = _.filter(this.players, (player) => player.isInHand);
       let everyoneHadATurn = (previousActions.length + 1) % playersRemaining.length === 0;
 
+      // TODO: Naive logic, we need to actually check that everyone has called
+      // the bettor
       if (everyoneChecked && everyoneHadATurn) {
         let result = { isHandComplete: false };
-        this.roundEnded.onNext(result);
+        roundEnded.onNext(result);
       }
     }
+  }
+
+  // Private: Displays the flop cards and does a round of betting. If the
+  // betting round results in a winner, end the hand prematurely. Otherwise,
+  // progress to the turn.
+  //
+  // handEnded - A {Subject} that is used to end the hand
+  //
+  // Returns nothing
+  flop(handEnded) {
+    this.deck.drawCard(); // Burn one
+    let flop = [this.deck.drawCard(), this.deck.drawCard(), this.deck.drawCard()];
+    this.board = flop;
+
+    this.postBoard('flop').subscribe(() =>
+      this.doBettingRound('flop').subscribe((result) =>
+        result.isHandComplete ?
+          this.endHand(handEnded, result) :
+          this.turn(handEnded)));
+  }
+
+  // Private: Displays the turn card and does an additional round of betting.
+  //
+  // handEnded - A {Subject} that is used to end the hand
+  //
+  // Returns nothing
+  turn(handEnded) {
+    this.deck.drawCard(); // Burn one
+    let turn = this.deck.drawCard();
+    this.board.push(turn);
+
+    this.postBoard('turn').subscribe(() =>
+      this.doBettingRound('turn').subscribe((result) =>
+        result.isHandComplete ?
+          this.endHand(handEnded, result) :
+          this.river(handEnded)));
+  }
+
+  // Private: Displays the river card and does a final round of betting.
+  //
+  // handEnded - A {Subject} that is used to end the hand
+  //
+  // Returns nothing
+  river(handEnded) {
+    this.deck.drawCard(); // Burn one
+    let river = this.deck.drawCard();
+    this.board.push(river);
+
+    this.postBoard('river').subscribe(() =>
+      this.doBettingRound('river').subscribe((result) => {
+        // Still no winner? Time for a showdown.
+        if (!result.isHandComplete) {
+          result = this.evaluateHands();
+        }
+        this.endHand(handEnded, result);
+      }));
+  }
+
+  // Private: Does work after the hand, including declaring a winner, giving
+  // them chips, and moving the dealer button.
+  //
+  // handEnded - A {Subject} that is used to end the hand
+  // result - An object with keys for the winning player and (optionally) the
+  //          hand, if a showdown was required
+  //
+  // Returns nothing
+  endHand(handEnded, result) {
+    let message = `${result.winner.name} wins`;
+    if (result.hand) {
+      message += ` with ${result.handName}, ${result.hand.toString()}.`;
+    } else {
+      message += ".";
+    }
+
+    this.channel.send(message);
+    this.dealerButton = (this.dealerButton + 1) % this.players.length;
+
+    handEnded.onNext(true);
+    handEnded.onCompleted();
   }
 
   // Private: Adds players to the hand if they have enough chips and posts
