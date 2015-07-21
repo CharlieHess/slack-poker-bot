@@ -181,8 +181,7 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerAction(player, action, previousActions, roundEnded) {
-    let turnNumber = _.keys(previousActions).length;
-    console.log(`${turnNumber}: ${player.name} ${action}s`);
+    console.log(`${player.name} ${action}s`);
 
     switch (action) {
     case 'fold':
