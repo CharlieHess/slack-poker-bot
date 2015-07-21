@@ -38,9 +38,11 @@ class TexasHoldem {
   //
   // dealerButton - (Optional) The initial index of the dealer button, or null
   //                to have it randomly assigned
+  // timeBetweenHands - (Optional) The time, in milliseconds, to pause between
+  //                    the end of one hand and the start of another
   //
   // Returns a {Disposable} that will end this game early
-  start(dealerButton=null) {
+  start(dealerButton=null, timeBetweenHands=5000) {
     this.dealerButton = dealerButton === null ?
       Math.floor(Math.random() * this.players.length) :
       dealerButton;
@@ -48,7 +50,7 @@ class TexasHoldem {
     return rx.Observable.return(true)
       .flatMap(() => this.playHand()
         .do(() => console.log(`Ending the hand`))
-        .flatMap(() => rx.Observable.timer(5000, this.scheduler)))
+        .flatMap(() => rx.Observable.timer(timeBetweenHands, this.scheduler)))
       .repeat()
       .takeUntil(this.quitGame)
       .subscribe();

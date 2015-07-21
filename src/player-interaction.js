@@ -123,14 +123,15 @@ class PlayerInteraction {
   // Returns an array of strings
   static getAvailableActions(player, previousActions) {
     let actions = _.values(previousActions);
+    let playerBet = actions.indexOf('bet') > -1;
+    let playerRaised = actions.indexOf('raise') > -1;
+
     let availableActions = [];
 
-    if (player.isBigBlind) {
-      // The big blind is a special case.
+    if (player.isBigBlind && !playerRaised) {
       availableActions.push('check');
       availableActions.push('raise');
-    } else if (actions.indexOf('bet') > -1) {
-      // If a bet has been made, call and raise are available.
+    } else if (playerBet || playerRaised) {
       availableActions.push('call');
       availableActions.push('raise');
     } else {
