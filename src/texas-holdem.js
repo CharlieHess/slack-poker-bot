@@ -179,44 +179,69 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerAction(player, action, previousActions, roundEnded) {
-    let currentBettor = _.find(this.players, player => player.isBettor);
     let turnNumber = _.keys(previousActions).length;
     console.log(`${turnNumber}: ${player.name} ${action}s`);
 
-    if (action === 'fold') {
-      player.isInHand = false;
-
-      let playersRemaining = _.filter(this.players, player => player.isInHand);
-
-      if (playersRemaining.length === 1) {
-        let result = { isHandComplete: true, winner: playersRemaining[0] };
-        roundEnded.onNext(result);
-      }
-    } else if (action === 'check') {
-      let everyoneChecked = _.every(_.values(previousActions), x => x === 'check' || x === 'call');
-      let playersRemaining = _.filter(this.players, player => player.isInHand);
-      let everyoneHadATurn = _.keys(previousActions).length % playersRemaining.length === 0;
-
-      console.log(`Checked, everyone checked: ${everyoneChecked}, had a turn: ${everyoneHadATurn}`);
-      if (everyoneChecked && everyoneHadATurn) {
-        let result = { isHandComplete: false };
-        roundEnded.onNext(result);
-      }
-    } else if (action === 'call') {
-      let playersToCall = _.filter(this.players, player => player.isInHand && !player.isBettor);
-      let everyoneCalled = _.every(playersToCall, p => p.lastAction === 'call');
-      let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
-
-      console.log(`Got call, everyone matched: ${everyoneCalled}, had a turn: ${everyoneHadATurn}`);
-      if (everyoneCalled && everyoneHadATurn) {
-        let result = { isHandComplete: false };
-        roundEnded.onNext(result);
-      }
-    } else if (action === 'bet' || action === 'raise') {
-      if (currentBettor) currentBettor.isBettor = false;
-      player.isBettor = true;
-      console.log(`${player.name} is now the bettor`);
+    switch (action) {
+    case 'fold':
+      this.onPlayerFolded(player, roundEnded);
+      break;
+    case 'check':
+      this.onPlayerChecked(player, previousActions, roundEnded);
+      break;
+    case 'call':
+      this.onPlayerCalled(player, roundEnded);
+      break;
+    case 'bet':
+    case 'raise':
+      this.onPlayerBet(player);
+      break;
     }
+  }
+
+  onPlayerFolded(player, roundEnded) {
+    player.isInHand = false;
+    let playersRemaining = _.filter(this.players, p => p.isInHand);
+
+    // If everyone folded out, declare a winner.
+    if (playersRemaining.length === 1) {
+      let result = { isHandComplete: true, winner: playersRemaining[0] };
+      roundEnded.onNext(result);
+    }
+  }
+
+  onPlayerChecked(player, previousActions, roundEnded) {
+    let everyoneChecked = _.every(_.values(previousActions),
+      action => action === 'check' || action === 'call');
+    let playersRemaining = _.filter(this.players, p => p.isInHand);
+    let everyoneHadATurn = _.keys(previousActions).length % playersRemaining.length === 0;
+
+    // If everyone checked, move to the next round.
+    if (everyoneChecked && everyoneHadATurn) {
+      let result = { isHandComplete: false };
+      roundEnded.onNext(result);
+    }
+  }
+
+  onPlayerCalled(player, roundEnded) {
+    let playersToCall = _.filter(this.players, p => p.isInHand && !p.isBettor);
+    let everyoneCalled = _.every(playersToCall, p => p.lastAction === 'call');
+    let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
+
+    // If everyone left in the hand has called and we're back to the original
+    // bettor, move to the next round.
+    if (everyoneCalled && everyoneHadATurn) {
+      let result = { isHandComplete: false };
+      roundEnded.onNext(result);
+    }
+  }
+
+  onPlayerBet(player) {
+    let currentBettor = _.find(this.players, p => player.isBettor);
+    if (currentBettor) {
+      currentBettor.isBettor = false;
+    }
+    player.isBettor = true;
   }
 
   // Private: Displays the flop cards and does a round of betting. If the
