@@ -180,8 +180,8 @@ class TexasHoldem {
   // Returns nothing
   onPlayerAction(player, action, previousActions, roundEnded) {
     let currentBettor = _.find(this.players, player => player.isBettor);
-    console.log(`${player.name} ${action}s`);
-    console.log(`Current bettor: ${currentBettor.name}`);
+    let turnNumber = _.keys(previousActions).length;
+    console.log(`${turnNumber}: ${player.name} ${action}s`);
 
     if (action === 'fold') {
       player.isInHand = false;
@@ -192,19 +192,23 @@ class TexasHoldem {
         let result = { isHandComplete: true, winner: playersRemaining[0] };
         roundEnded.onNext(result);
       }
-    } else if (action === 'check' || action === 'call') {
-      let everyoneMatched = _.every(_.values(previousActions), x => x === 'check' || x === 'call');
-
-      let isLastToAct = PlayerOrder.isLastToAct(player, this.orderedPlayers);
-
+    } else if (action === 'check') {
+      let everyoneChecked = _.every(_.values(previousActions), x => x === 'check' || x === 'call');
       let playersRemaining = _.filter(this.players, player => player.isInHand);
-      let cycleCompleted = (_.keys(previousActions).length + 1) % playersRemaining.length === 0;
+      let everyoneHadATurn = _.keys(previousActions).length % playersRemaining.length === 0;
 
-      let everyoneHadATurn = currentBettor ? isLastToAct : cycleCompleted;
-      console.log(`All set? ${everyoneMatched}, everyone had a turn? ${everyoneHadATurn}`);
+      console.log(`Checked, everyone checked: ${everyoneChecked}, had a turn: ${everyoneHadATurn}`);
+      if (everyoneChecked && everyoneHadATurn) {
+        let result = { isHandComplete: false };
+        roundEnded.onNext(result);
+      }
+    } else if (action === 'call') {
+      let playersToCall = _.filter(this.players, player => player.isInHand && !player.isBettor);
+      let everyoneCalled = _.every(playersToCall, p => p.lastAction === 'call');
+      let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
-      if (everyoneMatched && everyoneHadATurn) {
-        console.log(`Ending the betting round`);
+      console.log(`Got call, everyone matched: ${everyoneCalled}, had a turn: ${everyoneHadATurn}`);
+      if (everyoneCalled && everyoneHadATurn) {
         let result = { isHandComplete: false };
         roundEnded.onNext(result);
       }
