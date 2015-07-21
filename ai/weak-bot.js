@@ -13,8 +13,8 @@ class WeakBot {
   }
 
   // LOL WEAK
-  getAction(previousActions) {
-    let action = _.values(previousActions).indexOf('bet') > -1 ? 'call' : 'check';
-    return rx.Observable.timer(500).map(() => action);
+  getAction(availableActions, previousActions) {
+    let action = availableActions.indexOf('check') > -1 ? 'check' : 'call';
+    return rx.Observable.timer(1000).map(() => action);
   }
 };

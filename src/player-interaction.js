@@ -47,7 +47,8 @@ class PlayerInteraction {
   // expires, a 'timeout' action is returned.
   static getActionForPlayer(messages, channel, player, previousActions, scheduler=rx.Scheduler.timeout, timeout=30) {
     let intro = `${player.name}, it's your turn to act.`;
-    let formatMessage = (t) => PlayerInteraction.buildActionMessage(previousActions, t);
+    let availableActions = PlayerInteraction.getAvailableActions(player, previousActions);
+    let formatMessage = (t) => PlayerInteraction.buildActionMessage(availableActions, t);
     let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, intro,
       formatMessage, scheduler, timeout);
 
@@ -64,7 +65,7 @@ class PlayerInteraction {
     // action (only applicable to bots)
     return rx.Observable
       .merge(playerAction, timeExpired.map(() => 'timeout'),
-        player.isBot ? player.getAction(previousActions) : rx.Observable.never())
+        player.isBot ? player.getAction(availableActions, previousActions) : rx.Observable.never())
       .take(1)
       .do((action) => {
         disp.dispose();
@@ -100,12 +101,11 @@ class PlayerInteraction {
   // Private: Builds up a formatted countdown message containing the available
   // actions.
   //
-  // previousActions - An array of the previous player actions for this round
+  // availableActions - An array of the actions available to this player
   // timeRemaining - Number of seconds remaining for the player to act
   //
   // Returns the formatted string
-  static buildActionMessage(previousActions, timeRemaining) {
-    let availableActions = PlayerInteraction.getAvailableActions(previousActions);
+  static buildActionMessage(availableActions, timeRemaining) {
     let message = 'Respond with\n';
     for (let action of availableActions) {
       message += `*(${action.charAt(0).toUpperCase()})${action.slice(1)}*\n`;
@@ -117,15 +117,20 @@ class PlayerInteraction {
   // Private: Given an array of actions taken previously in the hand, returns
   // an array of available actions.
   //
+  // player - The player who is acting
   // previousActions - A map of players to their most recent action
   //
   // Returns an array of strings
-  static getAvailableActions(previousActions) {
+  static getAvailableActions(player, previousActions) {
     let actions = _.values(previousActions);
     let availableActions = [];
 
-    // NB: If a bet has been made, call and raise are available.
-    if (actions.indexOf('bet') > -1) {
+    if (player.isBigBlind) {
+      // The big blind is a special case.
+      availableActions.push('check');
+      availableActions.push('raise');
+    } else if (actions.indexOf('bet') > -1) {
+      // If a bet has been made, call and raise are available.
       availableActions.push('call');
       availableActions.push('raise');
     } else {
