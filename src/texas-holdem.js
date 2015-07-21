@@ -38,16 +38,19 @@ class TexasHoldem {
   //
   // dealerButton - (Optional) The initial index of the dealer button, or null
   //                to have it randomly assigned
+  // timeBetweenHands - (Optional) The time, in milliseconds, to pause between
+  //                    the end of one hand and the start of another
   //
   // Returns a {Disposable} that will end this game early
-  start(dealerButton=null) {
+  start(dealerButton=null, timeBetweenHands=5000) {
     this.dealerButton = dealerButton === null ?
       Math.floor(Math.random() * this.players.length) :
       dealerButton;
 
     return rx.Observable.return(true)
       .flatMap(() => this.playHand()
-        .flatMap(() => rx.Observable.timer(5000, this.scheduler)))
+        .do(() => console.log(`Ending the hand`))
+        .flatMap(() => rx.Observable.timer(timeBetweenHands, this.scheduler)))
       .repeat()
       .takeUntil(this.quitGame)
       .subscribe();
@@ -105,9 +108,19 @@ class TexasHoldem {
     this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, round);
     for (let player of this.orderedPlayers) {
       player.lastAction = null;
+      player.isBettor = false;
+      player.isBigBlind = false;
     }
 
     let previousActions = {};
+
+    if (round === 'preflop') {
+      let bigBlind = this.players[this.bigBlind];
+      bigBlind.isBettor = true;
+      bigBlind.isBigBlind = true;
+      previousActions[bigBlind.id] = 'bet';
+    }
+
     let roundEnded = new rx.Subject();
 
     // NB: Take the players remaining in the hand, in order, and poll each for
@@ -118,7 +131,7 @@ class TexasHoldem {
       .concatMap((player) => this.deferredActionForPlayer(player, previousActions))
       .repeat()
       .reduce((acc, x) => {
-        this.onPlayerAction(x.player, x.action, acc, roundEnded);
+        this.onPlayerAction(x.player, x.action, previousActions, roundEnded);
         acc.push(x);
         return acc;
       }, [])
@@ -151,7 +164,7 @@ class TexasHoldem {
             // NB: Save the action in various structures and return it with a
             // reference to the acting player.
             player.lastAction = action;
-            previousActions[player] = action;
+            previousActions[player.id] = action;
             return {player: player, action: action};
           }));
     });
@@ -168,29 +181,68 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerAction(player, action, previousActions, roundEnded) {
-    console.log(`${previousActions.length}: ${player.name} ${action}s`);
+    console.log(`${player.name} ${action}s`);
 
-    if (action === 'fold') {
-      player.isInHand = false;
-
-      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
-
-      if (playersRemaining.length === 1) {
-        let result = { isHandComplete: true, winner: playersRemaining[0] };
-        roundEnded.onNext(result);
-      }
-    } else if (action === 'check') {
-      let everyoneChecked = _.every(previousActions, (x) => x.action === 'check');
-      let playersRemaining = _.filter(this.players, (player) => player.isInHand);
-      let everyoneHadATurn = (previousActions.length + 1) % playersRemaining.length === 0;
-
-      // TODO: Naive logic, we need to actually check that everyone has called
-      // the bettor
-      if (everyoneChecked && everyoneHadATurn) {
-        let result = { isHandComplete: false };
-        roundEnded.onNext(result);
-      }
+    switch (action) {
+    case 'fold':
+      this.onPlayerFolded(player, roundEnded);
+      break;
+    case 'check':
+      this.onPlayerChecked(player, previousActions, roundEnded);
+      break;
+    case 'call':
+      this.onPlayerCalled(player, roundEnded);
+      break;
+    case 'bet':
+    case 'raise':
+      this.onPlayerBet(player);
+      break;
     }
+  }
+
+  onPlayerFolded(player, roundEnded) {
+    player.isInHand = false;
+    let playersRemaining = _.filter(this.players, p => p.isInHand);
+
+    // If everyone folded out, declare a winner.
+    if (playersRemaining.length === 1) {
+      let result = { isHandComplete: true, winner: playersRemaining[0] };
+      roundEnded.onNext(result);
+    }
+  }
+
+  onPlayerChecked(player, previousActions, roundEnded) {
+    let everyoneChecked = _.every(_.values(previousActions),
+      action => action === 'check' || action === 'call');
+    let playersRemaining = _.filter(this.players, p => p.isInHand);
+    let everyoneHadATurn = _.keys(previousActions).length % playersRemaining.length === 0;
+
+    // If everyone checked, move to the next round.
+    if (everyoneChecked && everyoneHadATurn) {
+      let result = { isHandComplete: false };
+      roundEnded.onNext(result);
+    }
+  }
+
+  onPlayerCalled(player, roundEnded) {
+    let playersToCall = _.filter(this.players, p => p.isInHand && !p.isBettor);
+    let everyoneCalled = _.every(playersToCall, p => p.lastAction === 'call');
+    let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
+
+    // If everyone left in the hand has called and we're back to the original
+    // bettor, move to the next round.
+    if (everyoneCalled && everyoneHadATurn) {
+      let result = { isHandComplete: false };
+      roundEnded.onNext(result);
+    }
+  }
+
+  onPlayerBet(player) {
+    let currentBettor = _.find(this.players, p => player.isBettor);
+    if (currentBettor) {
+      currentBettor.isBettor = false;
+    }
+    player.isBettor = true;
   }
 
   // Private: Displays the flop cards and does a round of betting. If the
@@ -265,7 +317,7 @@ class TexasHoldem {
     if (result.hand) {
       message += ` with ${result.handName}: ${result.hand.toString()}.`;
     } else {
-      message += ".";
+      message += '.';
     }
 
     this.channel.send(message);
@@ -282,6 +334,7 @@ class TexasHoldem {
   setupPlayers() {
     for (let player of this.players) {
       player.isInHand = true;
+      player.isBettor = false;
     }
 
     this.smallBlind = (this.dealerButton + 1) % this.players.length;
