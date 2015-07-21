@@ -54,17 +54,21 @@ class PlayerInteraction {
 
     // Look for text that conforms to a player action.
     let playerAction = messages.where((e) => e.user === player.id)
-      .map((e) => PlayerInteraction.actionForMessage(e.text))
+      .map((e) => PlayerInteraction.actionForMessage(e.text, availableActions))
       .where((action) => action !== '')
       .publish();
 
     playerAction.connect();
     let disp = timeExpired.connect();
 
+    // If the user times out, they will be auto-folded unless they can check.
+    let actionForTimeout = timeExpired.map(() =>
+      availableActions.indexOf('check') > -1 ? 'check' : 'fold');
+
     // NB: Take the first result from the player action, the timeout, and a bot
-    // action (only applicable to bots)
+    // action (only applicable to bots).
     return rx.Observable
-      .merge(playerAction, timeExpired.map(() => 'timeout'),
+      .merge(playerAction, actionForTimeout,
         player.isBot ? player.getAction(availableActions, previousActions) : rx.Observable.never())
       .take(1)
       .do((action) => {
@@ -146,14 +150,17 @@ class PlayerInteraction {
   // Private: Maps abbreviated text for a player action to its canonical name.
   //
   // text - The text of the player message
+  // availableActions - An array of the actions available to this player
   //
   // Returns the canonical action
-  static actionForMessage(text) {
+  static actionForMessage(text, availableActions) {
     if (!text) return '';
 
     switch (text.toLowerCase()) {
     case 'c':
+      return availableActions[0];
     case 'call':
+      return 'call';
     case 'check':
       return 'check';
     case 'f':
