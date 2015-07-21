@@ -200,43 +200,65 @@ class TexasHoldem {
     }
   }
 
+  // Private: If everyone folded out, declare a winner.
+  //
+  // player - The player who folded
+  // roundEnded - A {Subject} used to end the betting round
+  //
+  // Returns nothing
   onPlayerFolded(player, roundEnded) {
     player.isInHand = false;
     let playersRemaining = _.filter(this.players, p => p.isInHand);
 
-    // If everyone folded out, declare a winner.
     if (playersRemaining.length === 1) {
       let result = { isHandComplete: true, winner: playersRemaining[0] };
       roundEnded.onNext(result);
     }
   }
 
+  // Private: If everyone checked, move to the next round.
+  //
+  // player - The player who checked
+  // previousActions - A map of players to their most recent action
+  // roundEnded - A {Subject} used to end the betting round
+  //
+  // Returns nothing
   onPlayerChecked(player, previousActions, roundEnded) {
     let everyoneChecked = _.every(_.values(previousActions),
       action => action === 'check' || action === 'call');
     let playersRemaining = _.filter(this.players, p => p.isInHand);
     let everyoneHadATurn = _.keys(previousActions).length % playersRemaining.length === 0;
 
-    // If everyone checked, move to the next round.
     if (everyoneChecked && everyoneHadATurn) {
       let result = { isHandComplete: false };
       roundEnded.onNext(result);
     }
   }
 
+  // Private: If everyone left in the hand has called and we're back to the
+  // original bettor, move to the next round.
+  //
+  // player - The player who called
+  // roundEnded - A {Subject} used to end the betting round
+  //
+  // Returns nothing
   onPlayerCalled(player, roundEnded) {
     let playersToCall = _.filter(this.players, p => p.isInHand && !p.isBettor);
     let everyoneCalled = _.every(playersToCall, p => p.lastAction === 'call');
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
-    // If everyone left in the hand has called and we're back to the original
-    // bettor, move to the next round.
     if (everyoneCalled && everyoneHadATurn) {
       let result = { isHandComplete: false };
       roundEnded.onNext(result);
     }
   }
 
+  // Private: When a player bets, assign them as the current bettor. The
+  // betting round will cycle through all players up to the bettor.
+  //
+  // player - The player who bet or raised
+  //
+  // Returns nothing
   onPlayerBet(player) {
     let currentBettor = _.find(this.players, p => player.isBettor);
     if (currentBettor) {
