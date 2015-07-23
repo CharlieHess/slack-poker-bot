@@ -331,8 +331,9 @@ class TexasHoldem {
       this.doBettingRound('river').subscribe((result) => {
         // Still no winner? Time for a showdown.
         if (!result.isHandComplete) {
+          let playersRemaining = _.filter(this.players, p => p.isInHand);
           result = HandEvaluator.evaluateHands(
-            this.players,
+            playersRemaining,
             this.playerHands,
             this.board);
         }
