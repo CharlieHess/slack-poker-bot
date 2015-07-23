@@ -226,6 +226,9 @@ class TexasHoldem {
     if (playersRemaining.length === 1) {
       let result = { isHandComplete: true, winner: playersRemaining[0] };
       roundEnded.onNext(result);
+    } else if (PlayerOrder.isLastToAct(player, this.orderedPlayers)) {
+      let result = { isHandComplete: false };
+      roundEnded.onNext(result);
     }
   }
 

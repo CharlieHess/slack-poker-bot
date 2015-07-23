@@ -42,6 +42,37 @@ describe('TexasHoldem', function() {
     };
   });
 
+  it('should handle consecutive raises correctly', function() {
+    game.start(0);
+    scheduler.advanceBy(5000);
+
+    // A flurry of raises, starting with Patrik.
+    messages.onNext({user: 4, text: "Raise"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "raise"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 1, text: "Raise"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "fold"});
+    scheduler.advanceBy(5000);
+
+    var playersInHand = game.getPlayersInHand();
+    assert(playersInHand.length === 3);
+    assert(game.actingPlayer.name === 'Patrik Antonius');
+
+    messages.onNext({user: 4, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "Fold"});
+    scheduler.advanceBy(5000);
+
+    // Patrik and Phil are still left in the hand.
+    playersInHand = game.getPlayersInHand();
+    assert(playersInHand.length === 2);
+    assert(game.actingPlayer.name === 'Patrik Antonius');
+  });
+
   it('should handle player timeout by folding, or if possible, checking', function() {
     game.start(0);
     scheduler.advanceBy(5000);
