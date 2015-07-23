@@ -49,7 +49,6 @@ class TexasHoldem {
 
     return rx.Observable.return(true)
       .flatMap(() => this.playHand()
-        .do(() => console.log(`Ending the hand`))
         .flatMap(() => rx.Observable.timer(timeBetweenHands, this.scheduler)))
       .repeat()
       .takeUntil(this.quitGame)
@@ -78,7 +77,7 @@ class TexasHoldem {
   // 4. Deal the flop and do a betting round
   // 5. Deal the turn and do a betting round
   // 6. Deal the river and do a final betting round
-  // 7. TODO: Decide a winner and send chips their way
+  // 7. Decide a winner and send chips their way
   //
   // Returns an {Observable} signaling the completion of the hand
   playHand() {
