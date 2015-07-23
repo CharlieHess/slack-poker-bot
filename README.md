@@ -13,23 +13,18 @@ A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in a
 1. To end a game, `@<your_bot_name>: Quit game`
 
 ### TODO
-- [x] Tally up players that are participating
-- [x] Basic game logic
+This bot can do all of the following:
+- [x] Initiate a game and poll players to join
+- [x] Handle player order, blinds, and basic betting actions
 - [x] Send player's pocket cards as a DM
-- [x] Display actual cards
-  - [x] Render the cards as an image attachment
-  - [x] Upload to imgur
-- [x] Determining the best hand
-- [x] Logic for player order
-- [x] Programmable bot classes
-- [x] Logic for a betting round
-  - [x] Cycle through players in order, tallying actions
-  - [x] Allow hands to be ended early or with showdown
-  - [x] More robust processing of player action
-- [ ] Handle split pots
-- [ ] Logic for player's chip stacks
-- [ ] Deployability (Heroku or whatever)
-- [ ] Infinity other things
+- [x] Display board images
+- [x] Determine the best hand
+
+It still lacks support for:
+- [ ] Chip stacks / bet amounts
+- [ ] All-ins
+- [ ] Split pots
+- [ ] Deployability
 
 ### AI Players
 Although this client was built for managing human players in a Slack channel, it has some support for AI players. To add a bot player:
