@@ -4,6 +4,7 @@ A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in a
 ![](https://s3.amazonaws.com/f.cl.ly/items/1h0S1x0e2e0t2A1W180u/Image%202015-06-30%20at%2011.07.16%20AM.png)
 
 ### Getting Started
+1. Create a new [bot integration](https://my.slack.com/services/new/bot)
 1. Add your API token to `main.js`
 1. `npm install`
 1. `node src/main.js`
@@ -37,7 +38,7 @@ Although this client was built for managing human players in a Slack channel, it
 1. Modify the `addBotPlayers` method in `src/bot.js` to add your bot to every game
 
 ### Spec All The Things
-To run all of the tests, simply run:
+To run all of the tests, just do:
 
 1. `gulp`
 

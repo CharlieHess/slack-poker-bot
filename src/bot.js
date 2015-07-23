@@ -14,7 +14,11 @@ class Bot {
   //
   // token - An API token from the bot integration
   constructor(token) {
-    this.slack = new Slack(token, true, true);
+    if (token === 'YOUR-TOKEN-GOES-HERE') {
+      throw new Error('Use a valid API token!');
+    } else {
+      this.slack = new Slack(token, true, true);
+    }
   }
 
   // Public: Brings this bot online and starts handling messages sent to it.
