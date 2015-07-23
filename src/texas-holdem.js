@@ -213,20 +213,25 @@ class TexasHoldem {
     }
   }
 
-  // Private: If everyone folded out, declare a winner.
+  // Private: If everyone folded out, declare a winner. Otherwise see if this
+  // was the last player to act and move to the next round.
   //
   // player - The player who folded
   // roundEnded - A {Subject} used to end the betting round
   //
   // Returns nothing
   onPlayerFolded(player, roundEnded) {
+    // See if this was the last player to act before we fold them out,
+    // otherwise they won't be in the list of remaining players.
+    let everyoneActed = PlayerOrder.isLastToAct(player, this.orderedPlayers);
+
     player.isInHand = false;
     let playersRemaining = _.filter(this.players, p => p.isInHand);
 
     if (playersRemaining.length === 1) {
       let result = { isHandComplete: true, winner: playersRemaining[0] };
       roundEnded.onNext(result);
-    } else if (PlayerOrder.isLastToAct(player, this.orderedPlayers)) {
+    } else if (everyoneActed) {
       let result = { isHandComplete: false };
       roundEnded.onNext(result);
     }
