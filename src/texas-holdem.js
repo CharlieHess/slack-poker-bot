@@ -237,10 +237,10 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerChecked(player, previousActions, roundEnded) {
-    let everyoneChecked = _.every(_.values(previousActions),
-      action => action === 'check' || action === 'call');
     let playersRemaining = _.filter(this.players, p => p.isInHand);
-    let everyoneHadATurn = _.keys(previousActions).length % playersRemaining.length === 0;
+    let everyoneChecked = _.every(playersRemaining, p =>
+      p.lastAction === 'check' || p.lastAction === 'call');
+    let everyoneHadATurn = _.keys(previousActions).length % this.players.length === 0;
 
     if (everyoneChecked && everyoneHadATurn) {
       let result = { isHandComplete: false };
@@ -256,8 +256,8 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerCalled(player, roundEnded) {
-    let playersToCall = _.filter(this.players, p => p.isInHand && !p.isBettor);
-    let everyoneCalled = _.every(playersToCall, p => p.lastAction === 'call');
+    let playersRemaining = _.filter(this.players, p => p.isInHand && !p.isBettor);
+    let everyoneCalled = _.every(playersRemaining, p => p.lastAction === 'call');
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     if (everyoneCalled && everyoneHadATurn) {

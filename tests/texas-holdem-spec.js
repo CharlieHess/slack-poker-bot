@@ -42,6 +42,39 @@ describe('TexasHoldem', function() {
     };
   });
 
+  it('should handle player timeout by folding, or if possible, checking', function() {
+    game.start(0);
+    scheduler.advanceBy(5000);
+
+    // Patrik is UTG and is going to timeout.
+    assert(game.actingPlayer.name === 'Patrik Antonius');
+    scheduler.advanceBy(30000);
+
+    // Bye bye Patrik.
+    var playersInHand = game.getPlayersInHand();
+    assert(playersInHand.length === 4);
+    assert(game.actingPlayer.name === 'Chip Reese');
+
+    // Everyone else calls.
+    messages.onNext({user: 5, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 1, text: "call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "call"});
+    scheduler.advanceBy(5000);
+
+    // Option to Stu, who also times out.
+    assert(game.actingPlayer.name === 'Stu Ungar');
+    assert(game.board.length === 0);
+    scheduler.advanceBy(30000);
+
+    // But we kindly checked for him since he's in the BB.
+    playersInHand = game.getPlayersInHand();
+    assert(playersInHand.length === 4);
+    assert(game.actingPlayer.name === 'Doyle Brunson');
+    game.quit();
+  });
+
   it('should handle a complex hand correctly', function() {
     // Start with Phil Ivey (index 0) as dealer.
     game.start(0);
@@ -121,7 +154,6 @@ describe('TexasHoldem', function() {
     // was ended and that the dealer button moved.
     assert(game.board.length === 0);
     assert(game.dealerButton === 1);
-
     game.quit();
   });
 });
