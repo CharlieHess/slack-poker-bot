@@ -5,7 +5,8 @@ A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in a
 
 ### Getting Started
 1. Create a new [bot integration](https://my.slack.com/services/new/bot)
-1. Add your API token to `main.js`
+1. Paste the API token from your integration into `main.js` _OR_
+1. Create a `token.txt` file and paste your API token there
 1. `npm install`
 1. `node src/main.js`
 1. To start a game, `@<your_bot_name>: Deal`
