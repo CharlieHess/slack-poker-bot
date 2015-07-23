@@ -45,6 +45,8 @@ describe('TexasHoldem', function() {
     scheduler.advanceBy(5000);
 
     // Doyle is SB, Stu is BB, Patrik is UTG.
+    assert(game.actingPlayer.name === 'Patrik Antonius');
+
     // Check all the way down to Stu.
     messages.onNext({user: 4, text: "Check"});
     scheduler.advanceBy(5000);
@@ -56,6 +58,7 @@ describe('TexasHoldem', function() {
     scheduler.advanceBy(5000);
 
     // Stu makes a bet.
+    assert(game.actingPlayer.name === 'Stu Ungar');
     messages.onNext({user: 3, text: "Bet"});
     scheduler.advanceBy(5000);
 
@@ -73,6 +76,8 @@ describe('TexasHoldem', function() {
     assert(playersInHand.length === 2);
     assert(playersInHand[0].name === 'Doyle Brunson');
     assert(playersInHand[1].name === 'Stu Ungar');
+
+    assert(game.board.length === 3);
 
     game.quit();
   });

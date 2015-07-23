@@ -132,7 +132,7 @@ class PlayerInteraction {
 
     let availableActions = [];
 
-    if (player.isBigBlind && !playerRaised) {
+    if (player.hasOption) {
       availableActions.push('check');
       availableActions.push('raise');
     } else if (playerBet || playerRaised) {

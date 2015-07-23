@@ -106,22 +106,21 @@ class TexasHoldem {
   // Returns an {Observable} signaling the completion of the round
   doBettingRound(round) {
     this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, round);
+    let previousActions = {};
+    let roundEnded = new rx.Subject();
+
     for (let player of this.orderedPlayers) {
       player.lastAction = null;
       player.isBettor = false;
-      player.isBigBlind = false;
+      player.hasOption = false;
     }
-
-    let previousActions = {};
 
     if (round === 'preflop') {
       let bigBlind = this.players[this.bigBlind];
       bigBlind.isBettor = true;
-      bigBlind.isBigBlind = true;
+      bigBlind.hasOption = true;
       previousActions[bigBlind.id] = 'bet';
     }
-
-    let roundEnded = new rx.Subject();
 
     // NB: Take the players remaining in the hand, in order, and poll each for
     // an action. This cycle will be repeated until the round is ended, which
@@ -158,15 +157,18 @@ class TexasHoldem {
       PlayerStatus.displayHandStatus(this.channel, this.players, player,
         this.dealerButton, this.bigBlind, this.smallBlind);
 
-      return rx.Observable.timer(timeToPause, this.scheduler).flatMap(() =>
-        PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions, this.scheduler)
+      return rx.Observable.timer(timeToPause, this.scheduler).flatMap(() => {
+        this.actingPlayer = player;
+
+        return PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions, this.scheduler)
           .map((action) => {
             // NB: Save the action in various structures and return it with a
             // reference to the acting player.
             player.lastAction = action;
             previousActions[player.id] = action;
             return {player: player, action: action};
-          }));
+          });
+        });
     });
   }
 
@@ -181,8 +183,6 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerAction(player, action, previousActions, roundEnded) {
-    console.log(`${player.name} ${action}s`);
-
     switch (action) {
     case 'fold':
       this.onPlayerFolded(player, roundEnded);
@@ -260,9 +260,10 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerBet(player) {
-    let currentBettor = _.find(this.players, p => player.isBettor);
+    let currentBettor = _.find(this.players, p => p.isBettor);
     if (currentBettor) {
       currentBettor.isBettor = false;
+      currentBettor.hasOption = false;
     }
     player.isBettor = true;
   }

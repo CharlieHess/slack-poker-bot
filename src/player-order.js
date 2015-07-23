@@ -44,11 +44,11 @@ module.exports = class PlayerOrder {
     let bettor = _.find(playersRemaining, p => p.isBettor);
     let bettorIndex = playersRemaining.indexOf(bettor);
 
-    let bigBlind =_.find(playersRemaining, p => p.isBigBlind);
-    let bigBlindIndex = playersRemaining.indexOf(bigBlind);
+    let playerWithOption =_.find(playersRemaining, p => p.hasOption);
+    let optionIndex = playersRemaining.indexOf(playerWithOption);
 
-    return bigBlind ?
-      currentIndex === bigBlindIndex :
+    return playerWithOption ?
+      currentIndex === optionIndex :
       (currentIndex + 1) % playersRemaining.length === bettorIndex;
   }
 };
