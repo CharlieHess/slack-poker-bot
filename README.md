@@ -10,9 +10,6 @@ A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in a
 1. To start a game, `@<your_bot_name>: Deal`
 1. To end a game, `@<your_bot_name>: Quit game`
 
-### Run Tests
-1. `gulp`
-
 ### TODO
 - [x] Tally up players that are participating
 - [x] Basic game logic
@@ -27,12 +24,33 @@ A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in a
   - [x] Cycle through players in order, tallying actions
   - [x] Allow hands to be ended early or with showdown
   - [x] More robust processing of player action
-- [ ] Logic for player's chip stacks
 - [ ] Handle split pots
+- [ ] Logic for player's chip stacks
 - [ ] Deployability (Heroku or whatever)
 - [ ] Infinity other things
 
+### AI Players
+Although this client was built for managing human players in a Slack channel, it has some support for AI players. To add a bot player:
+1. Add a bot class under the `ai/` folder
+1. Implement `getAction`, which is called whenever it is the bot's turn
+1. Modify the `addBotPlayers` method in `src/bot.js` to add your bot to every game
+
+### Spec All The Things
+To run all of the tests, simply:
+1. `gulp`
+The tests produce legible output that matches what users in Slack would see. This is very helpful when diagnosing a logic bug:
+![](https://s3.amazonaws.com/f.cl.ly/items/2T2c472a3M390J2T2t3I/Image%202015-07-23%20at%202.26.12%20PM.png)
+
 ### Dependencies
+* [RxJS](https://github.com/Reactive-Extensions/RxJS)
+The majority of this client is written using `RxJS`. It simplifies many of the complex player polling interactions, that would otherwise be Death By Timers, into very legible code.
+
 * [Poker Evaluator](https://github.com/chenosaurus/poker-evaluator)
+`poker-evaluator` is used for evaluating the winning hand when it comes time to show down. Here it has been extended to calculate the best 5-card hand from any 7-card hand.
+
 * [Lightweight Image Processor](https://github.com/EyalAr/lwip)
 * [Imgur](https://github.com/kaimallea/node-imgur)
+Each card is a separate image, and board images are created on the fly by pasting several cards onto a single canvas (with the help of  `lwip`). The resulting image is than uploaded to `imgur`, which gives us a single URL that can be passed as an attachment to the Slack API. This route was chosen to avoid uploading 311,875,200 images to the cloud, and allows us to modify the card assets easily.
+
+* [MochaJS](http://mochajs.org/)
+Most of the tricky client logic is backed up by tests, which were written using `MochaJS`.
