@@ -2,7 +2,7 @@ const rx = require('rx');
 const uuid = require('uuid');
 
 module.exports =
-class WeakBot {
+class AggroBot {
   constructor(name) {
     this.id = uuid.v4();
     this.name = name;
@@ -11,10 +11,10 @@ class WeakBot {
     this.holeCards = [];
   }
 
-  // LOL WEAK
+  // TOO STRONK
   getAction(availableActions, previousActions) {
-    let action = availableActions.indexOf('check') > -1 ? 'check' : 'call';
-    let delay = 1000 + (Math.random() * 3000);
+    let action = availableActions.indexOf('raise') > -1 ? 'raise' : 'bet';
+    let delay = 1000 + (Math.random() * 500);
     return rx.Observable.timer(delay).map(() => action);
   }
 };

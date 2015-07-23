@@ -5,7 +5,9 @@ const Slack = require('slack-client');
 const TexasHoldem = require('./texas-holdem');
 const MessageHelpers = require('./message-helpers');
 const PlayerInteraction = require('./player-interaction');
+
 const WeakBot = require('../ai/weak-bot');
+const AggroBot = require('../ai/aggro-bot');
 
 class Bot {
   // Public: Creates a new instance of the bot.
@@ -94,14 +96,10 @@ class Bot {
   // players - The players participating in the game
   addBotPlayers(players) {
     let bot1 = new WeakBot('Phil Hellmuth');
-    // let bot2 = new WeakBot('Doyle Brunson');
-    // let bot3 = new WeakBot('Stu Ungar');
-    // let bot4 = new WeakBot('Phil Ivey');
+    let bot2 = new AggroBot('Phil Ivey');
 
     players.push(bot1);
-    // players.push(bot2);
-    // players.push(bot3);
-    // players.push(bot4);
+    players.push(bot2);
   }
 
   // Private: Save which channels and groups this bot is in and log them.
