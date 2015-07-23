@@ -366,6 +366,7 @@ class TexasHoldem {
     }
 
     this.channel.send(message);
+    this.lastWinner = result.winner;
     this.dealerButton = (this.dealerButton + 1) % this.players.length;
 
     handEnded.onNext(true);

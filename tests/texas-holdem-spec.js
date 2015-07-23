@@ -45,6 +45,23 @@ describe('TexasHoldem', function() {
     game.tableFormatter = "\n";
   });
 
+  it('should assign a winner if everyone folds', function() {
+    game.start(0);
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 1, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Fold"});
+    scheduler.advanceBy(5000);
+
+    assert(game.lastWinner.name === 'Stu Ungar');
+    game.quit();
+  });
+
   it('should handle consecutive raises correctly', function() {
     game.start(0);
     scheduler.advanceBy(5000);
@@ -74,6 +91,7 @@ describe('TexasHoldem', function() {
     playersInHand = game.getPlayersInHand();
     assert(playersInHand.length === 2);
     assert(game.actingPlayer.name === 'Patrik Antonius');
+    game.quit();
   });
 
   it('should handle player timeout by folding, or if possible, checking', function() {
@@ -184,8 +202,9 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 3, text: "Call"});
     scheduler.advanceBy(5000);
 
-    // Someone won, although the result isn't important. Check that the hand
-    // was ended and that the dealer button moved.
+    // Check that one of the last two players won, although the result is
+    // random. Also assert that the hand was ended and the dealer button moved.
+    assert(game.lastWinner.id === 2 || game.lastWinner.id === 3);
     assert(game.board.length === 0);
     assert(game.dealerButton === 1);
     game.quit();
