@@ -11,10 +11,12 @@ class PlayerStatus {
   // dealerButton - The index of the dealer button
   // bigBlind - The index of the big blind
   // smallBlind - The index of the small blind
+  // tableFormatter - (Optional) String that will wrap the text table and can
+  //                  provide additional formatting
   //
   // Returns nothing
   static displayHandStatus(channel, players, actingPlayer,
-    dealerButton, bigBlind, smallBlind) {
+    dealerButton, bigBlind, smallBlind, tableFormatter=`\`\`\``) {
     let table = [];
 
     for (let idx = 0; idx < players.length; idx++) {
@@ -40,7 +42,7 @@ class PlayerStatus {
       table.push(row);
     }
 
-    let fixedWidthTable = `\`\`\`${textTable(table)}\`\`\``;
+    let fixedWidthTable = `${tableFormatter}${textTable(table)}${tableFormatter}`;
     channel.send(fixedWidthTable);
   }
 }

@@ -168,7 +168,7 @@ class TexasHoldem {
 
       // Display player position and who's next to act before polling.
       PlayerStatus.displayHandStatus(this.channel, this.players, player,
-        this.dealerButton, this.bigBlind, this.smallBlind);
+        this.dealerButton, this.bigBlind, this.smallBlind, this.tableFormatter);
 
       return rx.Observable.timer(timeToPause, this.scheduler).flatMap(() => {
         this.actingPlayer = player;

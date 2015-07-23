@@ -40,6 +40,9 @@ describe('TexasHoldem', function() {
       console.log("Dealing the " + round + ": " + game.board.toString());
       return rx.Observable.return(true);
     };
+
+    // Improves the appearance of player status in the console.
+    game.tableFormatter = "\n";
   });
 
   it('should handle consecutive raises correctly', function() {
