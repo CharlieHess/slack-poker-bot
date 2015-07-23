@@ -108,18 +108,7 @@ class TexasHoldem {
     let previousActions = {};
     let roundEnded = new rx.Subject();
 
-    for (let player of this.orderedPlayers) {
-      player.lastAction = null;
-      player.isBettor = false;
-      player.hasOption = false;
-    }
-
-    if (round === 'preflop') {
-      let bigBlind = this.players[this.bigBlind];
-      bigBlind.isBettor = true;
-      bigBlind.hasOption = true;
-      previousActions[bigBlind.id] = 'bet';
-    }
+    this.resetPlayersForBetting(round, previousActions);
 
     // NB: Take the players remaining in the hand, in order, and poll each for
     // an action. This cycle will be repeated until the round is ended, which
@@ -138,6 +127,31 @@ class TexasHoldem {
 
     queryPlayers.connect();
     return roundEnded;
+  }
+
+  // Private: Resets all player state from the previous round. If this is the
+  // preflop, do some additional initialization.
+  //
+  // round - The name of the betting round
+  // previousActions - A map of players to their most recent action
+  //
+  // Returns nothing
+  resetPlayersForBetting(round, previousActions) {
+    for (let player of this.orderedPlayers) {
+      player.lastAction = null;
+      player.isBettor = false;
+      player.hasOption = false;
+    }
+
+    // NB: So, in the preflop round we want to treat the big blind as the
+    // bettor. Because the bet was implict, that player also has an "option,"
+    // i.e., they will be the last to act.
+    if (round === 'preflop') {
+      let bigBlind = this.players[this.bigBlind];
+      bigBlind.isBettor = true;
+      bigBlind.hasOption = true;
+      previousActions[bigBlind.id] = 'bet';
+    }
   }
 
   // Private: Displays player position and who's next to act, pauses briefly,
