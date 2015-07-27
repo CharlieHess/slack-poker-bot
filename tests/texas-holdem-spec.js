@@ -3,6 +3,7 @@ require('babel/register');
 var rx = require('rx');
 var assert = require('chai').assert;
 
+var Card = require('../src/card');
 var TexasHoldem = require('../src/texas-holdem');
 
 describe('TexasHoldem', function() {
@@ -43,6 +44,61 @@ describe('TexasHoldem', function() {
 
     // Improves the appearance of player status in the console.
     game.tableFormatter = "\n";
+  });
+
+  it('should handle split pots correctly', function() {
+    game.start(0);
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 1, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Check"});
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 3, text: "Check"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 4, text: "Check"});
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 3, text: "Check"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 4, text: "Check"});
+    scheduler.advanceBy(5000);
+
+    // Override the game board and player hands to guarantee a split pot.
+    game.board = [
+      new Card('A', 'Hearts'),
+      new Card('8', 'Spades'),
+      new Card('8', 'Diamonds'),
+      new Card('8', 'Clubs'),
+      new Card('8', 'Hearts'),
+    ];
+
+    game.playerHands[3] = [
+      new Card('2', 'Clubs'),
+      new Card('3', 'Hearts')
+    ];
+
+    game.playerHands[4] = [
+      new Card('2', 'Diamonds'),
+      new Card('3', 'Spades')
+    ];
+
+    messages.onNext({user: 3, text: "Check"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 4, text: "Check"});
+    scheduler.advanceBy(5000);
+
+    assert(game.lastHandResult.isSplitPot);
+    assert(game.lastHandResult.winners.length === 2);
+    assert(game.lastHandResult.handName === 'four of a kind');
+    game.quit();
   });
 
   it('should assign a winner if everyone folds', function() {
