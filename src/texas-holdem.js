@@ -229,7 +229,11 @@ class TexasHoldem {
     let playersRemaining = _.filter(this.players, p => p.isInHand);
 
     if (playersRemaining.length === 1) {
-      let result = { isHandComplete: true, winner: playersRemaining[0] };
+      let result = {
+        isHandComplete: true,
+        winners: [playersRemaining[0]],
+        isSplitPot: false
+      };
       roundEnded.onNext(result);
     } else if (everyoneActed) {
       let result = { isHandComplete: false };
@@ -358,16 +362,27 @@ class TexasHoldem {
   //
   // Returns nothing
   endHand(handEnded, result) {
-    let message = `${result.winner.name} wins`;
-    if (result.hand) {
+    let message = '';
+    if (result.isSplitPot) {
+      _.each(result.winners, winner => {
+        if (_.last(result.winners) !== winner)
+          message += `${winner.name}, `;
+        else
+          message += `and ${winner.name} split the pot`;
+      });
       message += ` with ${result.handName}: ${result.hand.toString()}.`;
     } else {
-      message += '.';
+      message = `${result.winners[0].name} wins`;
+      if (result.hand) {
+        message += ` with ${result.handName}: ${result.hand.toString()}.`;
+      } else {
+        message += '.';
+      }
     }
 
     this.channel.send(message);
-    this.lastWinner = result.winner;
     this.dealerButton = (this.dealerButton + 1) % this.players.length;
+    this.lastHandResult = result;
 
     handEnded.onNext(true);
     handEnded.onCompleted();

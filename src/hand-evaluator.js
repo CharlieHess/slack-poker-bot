@@ -12,11 +12,11 @@ class HandEvaluator {
   // playerHands - A map of player ID to their hand
   // board - An array of five {Card} objects representing the board
   //
-  // Returns an object containing the winning player and information about
-  // their hand.
+  // Returns an object containing the winning player(s) and information about
+  // their hand(s).
   static evaluateHands(players, playerHands, board) {
     let bestHand = { handType: 0, handRank: 0 };
-    let winner = null;
+    let winners = [];
     let cardArray = null;
 
     for (let player of players) {
@@ -24,19 +24,25 @@ class HandEvaluator {
       let evalInput = sevenCardHand.map(card => card.toString());
       let currentHand = pokerEvaluator.evalHand(evalInput);
 
-      // TODO: Handle ties
       if (currentHand.handType > bestHand.handType ||
-        (currentHand.handType === bestHand.handType && currentHand.handRank > bestHand.handRank)) {
+        (currentHand.handType === bestHand.handType &&
+        currentHand.handRank > bestHand.handRank)) {
+        winners = [];
+        winners.push(player);
+
         bestHand = currentHand;
-        winner = player;
         cardArray = sevenCardHand;
+      } else if (currentHand.handType === bestHand.handType &&
+        currentHand.handRank === bestHand.handRank) {
+        winners.push(player);
       }
     }
 
     return {
-      winner: winner,
+      winners: winners,
       hand: HandEvaluator.bestFiveCardHand(cardArray),
-      handName: bestHand.handName
+      handName: bestHand.handName,
+      isSplitPot: winners.length > 1
     };
   }
 

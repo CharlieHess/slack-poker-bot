@@ -114,7 +114,8 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 2, text: "Fold"});
     scheduler.advanceBy(5000);
 
-    assert(game.lastWinner.name === 'Stu Ungar');
+    assert(game.lastHandResult.winners[0].name === 'Stu Ungar');
+    assert(!game.lastHandResult.isSplitPot);
     game.quit();
   });
 
@@ -260,7 +261,8 @@ describe('TexasHoldem', function() {
 
     // Check that one of the last two players won, although the result is
     // random. Also assert that the hand was ended and the dealer button moved.
-    assert(game.lastWinner.id === 2 || game.lastWinner.id === 3);
+    var winner = game.lastHandResult.winners[0];
+    assert(winner.id === 2 || winner.id === 3);
     assert(game.board.length === 0);
     assert(game.dealerButton === 1);
     game.quit();
