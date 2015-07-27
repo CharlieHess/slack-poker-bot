@@ -248,7 +248,7 @@ class TexasHoldem {
     let playersRemaining = _.filter(this.players, p => p.isInHand);
     let everyoneChecked = _.every(playersRemaining, p =>
       p.lastAction === 'check' || p.lastAction === 'call');
-    let everyoneHadATurn = _.keys(previousActions).length % this.players.length === 0;
+    let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     if (everyoneChecked && everyoneHadATurn) {
       let result = { isHandComplete: false };

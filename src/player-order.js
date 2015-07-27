@@ -44,11 +44,19 @@ module.exports = class PlayerOrder {
     let bettor = _.find(playersRemaining, p => p.isBettor);
     let bettorIndex = playersRemaining.indexOf(bettor);
 
-    let playerWithOption =_.find(playersRemaining, p => p.hasOption);
-    let optionIndex = playersRemaining.indexOf(playerWithOption);
+    // If there's no bettor, our list is already in sorted order: just
+    // compare against the last item.
+    if (!bettor) {
+      return actingPlayer === _.last(playersRemaining);
+    }
+
+    // If there is a bettor, there are two cases we need to handle:
+    // 1. Default case; is this the player immediately before the bettor?
+    // 2. Special case; a player in the BB has an option to raise.
+    let playerWithOption = _.find(playersRemaining, p => p.hasOption);
 
     return playerWithOption ?
-      currentIndex === optionIndex :
+      actingPlayer === playerWithOption :
       (currentIndex + 1) % playersRemaining.length === bettorIndex;
   }
 };
