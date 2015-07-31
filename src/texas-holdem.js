@@ -31,6 +31,8 @@ class TexasHoldem {
     }
 
     this.deck = new Deck();
+    this.smallBlind = 1;
+    this.bigBlind = this.smallBlind * 2;
     this.quitGame = new rx.Subject();
   }
 
@@ -143,17 +145,30 @@ class TexasHoldem {
       player.hasOption = false;
     }
 
+    if (round === 'preflop') {
+      this.postBlinds(previousActions);
+    }
+  }
+
+  // Private: Posts blinds for a betting round.
+  //
+  // previousActions - A map of players to their most recent action
+  //
+  // Returns nothing
+  postBlinds(previousActions) {
+    let sbPlayer = this.players[this.smallBlindIdx];
+    let bbPlayer = this.players[this.bigBlindIdx];
+
     // NB: So, in the preflop round we want to treat the big blind as the
     // bettor. Because the bet was implict, that player also has an "option,"
     // i.e., they will be the last to act.
-    if (round === 'preflop') {
-      let smallBlind = this.players[this.smallBlind];
-      let bigBlind = this.players[this.bigBlind];
-      bigBlind.isBettor = true;
-      bigBlind.hasOption = true;
-      previousActions[smallBlind.id] = { name: 'bet', amount: 1 };
-      previousActions[bigBlind.id] = { name: 'bet', amount: 2 };
-    }
+    bbPlayer.isBettor = true;
+    bbPlayer.hasOption = true;
+
+    previousActions[sbPlayer.id] =
+      sbPlayer.lastAction = { name: 'bet', amount: this.smallBlind };
+    previousActions[bbPlayer.id] =
+      bbPlayer.lastAction = { name: 'bet', amount: this.bigBlind };
   }
 
   // Private: Displays player position and who's next to act, pauses briefly,
@@ -170,12 +185,13 @@ class TexasHoldem {
 
       // Display player position and who's next to act before polling.
       PlayerStatus.displayHandStatus(this.channel, this.players, player,
-        this.dealerButton, this.bigBlind, this.smallBlind, this.tableFormatter);
+        this.dealerButton, this.bigBlindIdx, this.smallBlindIdx, this.tableFormatter);
 
       return rx.Observable.timer(timeToPause, this.scheduler).flatMap(() => {
         this.actingPlayer = player;
 
-        return PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions, this.scheduler)
+        return PlayerInteraction.getActionForPlayer(this.messages, this.channel,
+          player, previousActions, this.smallBlind, this.scheduler)
           .map((action) => {
             // NB: Save the action in various structures and return it with a
             // reference to the acting player.
@@ -391,8 +407,8 @@ class TexasHoldem {
     handEnded.onCompleted();
   }
 
-  // Private: Adds players to the hand if they have enough chips and posts
-  // blinds.
+  // Private: Adds players to the hand if they have enough chips and determines
+  // small blind and big blind indices.
   //
   // Returns nothing
   setupPlayers() {
@@ -401,8 +417,8 @@ class TexasHoldem {
       player.isBettor = false;
     }
 
-    this.smallBlind = (this.dealerButton + 1) % this.players.length;
-    this.bigBlind = (this.smallBlind + 1) % this.players.length;
+    this.smallBlindIdx = (this.dealerButton + 1) % this.players.length;
+    this.bigBlindIdx = (this.smallBlindIdx + 1) % this.players.length;
   }
 
   // Private: Deals hole cards to each player in the game. To communicate this

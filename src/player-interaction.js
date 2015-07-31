@@ -40,12 +40,14 @@ class PlayerInteraction {
   // channel - The {Channel} object, used for posting messages
   // player - The player being polled
   // previousActions - A map of players to their most recent action
+  // defaultBet - The default bet to use
   // scheduler - (Optional) The scheduler to use for timing events
   // timeout - (Optional) The amount of time to conduct polling, in seconds
   //
   // Returns an {Observable} indicating the action the player took. If time
   // expires, a 'timeout' action is returned.
-  static getActionForPlayer(messages, channel, player, previousActions, scheduler=rx.Scheduler.timeout, timeout=30) {
+  static getActionForPlayer(messages, channel, player, previousActions, defaultBet,
+    scheduler=rx.Scheduler.timeout, timeout=30) {
     let intro = `${player.name}, it's your turn to act.`;
     let availableActions = PlayerInteraction.getAvailableActions(player, previousActions);
     let formatMessage = (t) => PlayerInteraction.buildActionMessage(availableActions, t);
@@ -54,7 +56,7 @@ class PlayerInteraction {
 
     // Look for text that conforms to a player action.
     let playerAction = messages.where((e) => e.user === player.id)
-      .map((e) => PlayerInteraction.actionFromMessage(e.text, availableActions))
+      .map((e) => PlayerInteraction.actionFromMessage(e.text, availableActions, defaultBet))
       .where((action) => action !== null)
       .publish();
 
@@ -160,12 +162,12 @@ class PlayerInteraction {
   //
   // text - The text that the player entered
   // availableActions - An array of the actions available to this player
-  // defaultBet - (Optional) The default bet amount, used if a number cannot be
-  //              parsed from the input text
+  // defaultBet - The default bet amount, used if a number cannot be parsed
+  //              from the input text
   //
   // Returns an object representing the action, with keys for the name and
   // bet amount, or null if the input was invalid.
-  static actionFromMessage(text, availableActions, defaultBet=1) {
+  static actionFromMessage(text, availableActions, defaultBet) {
     if (!text) return null;
 
     let input = text.trim().toLowerCase().split(/\s+/);
@@ -208,7 +210,13 @@ class PlayerInteraction {
       null;
   }
 
-  static betFromMessage(text, defaultBet=1) {
+  // Private: Parse the bet amount from a string.
+  //
+  // text - The player input
+  // defaultBet - The default bet to use if the parse fails
+  //
+  // Returns a number representing the bet amount
+  static betFromMessage(text, defaultBet) {
     if (!text) return defaultBet;
     let bet = parseInt(text);
     return isNaN(bet) ? defaultBet : bet;

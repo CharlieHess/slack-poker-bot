@@ -155,9 +155,9 @@ describe('PlayerInteraction', function() {
       assert(action.name === 'bet');
       assert(action.amount === 5000);
 
-      action = PlayerInteraction.actionFromMessage('bet some money 999', availableActions);
+      action = PlayerInteraction.actionFromMessage('bet some money 999', availableActions, 2);
       assert(action.name === 'bet');
-      assert(action.amount === 1);
+      assert(action.amount === 2);
 
       action = PlayerInteraction.actionFromMessage('not a bet', availableActions);
       assert(action === null);
@@ -166,7 +166,7 @@ describe('PlayerInteraction', function() {
       assert(action === null);
 
       availableActions = ['call', 'raise', 'fold'];
-      action = PlayerInteraction.actionFromMessage('raise infinity', availableActions);
+      action = PlayerInteraction.actionFromMessage('raise infinity', availableActions, 1);
       assert(action.name === 'raise');
       assert(action.amount === 1);
 
