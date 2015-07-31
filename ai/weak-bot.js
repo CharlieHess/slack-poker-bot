@@ -13,7 +13,9 @@ class WeakBot {
 
   // LOL WEAK
   getAction(availableActions, previousActions) {
-    let action = availableActions.indexOf('check') > -1 ? 'check' : 'call';
+    let action = availableActions.indexOf('check') > -1 ?
+      { name: 'check' } :
+      { name: 'call' };
     let delay = 1000 + (Math.random() * 3000);
     return rx.Observable.timer(delay).map(() => action);
   }

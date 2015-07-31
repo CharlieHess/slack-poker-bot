@@ -13,7 +13,9 @@ class AggroBot {
 
   // TOO STRONK
   getAction(availableActions, previousActions) {
-    let action = availableActions.indexOf('raise') > -1 ? 'raise' : 'bet';
+    let action = availableActions.indexOf('raise') > -1 ?
+      { name: 'raise' } :
+      { name: 'bet' };
     let delay = 1000 + (Math.random() * 500);
     return rx.Observable.timer(delay).map(() => action);
   }

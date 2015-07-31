@@ -147,10 +147,12 @@ class TexasHoldem {
     // bettor. Because the bet was implict, that player also has an "option,"
     // i.e., they will be the last to act.
     if (round === 'preflop') {
+      let smallBlind = this.players[this.smallBlind];
       let bigBlind = this.players[this.bigBlind];
       bigBlind.isBettor = true;
       bigBlind.hasOption = true;
-      previousActions[bigBlind.id] = 'bet';
+      previousActions[smallBlind.id] = { name: 'bet', amount: 1 };
+      previousActions[bigBlind.id] = { name: 'bet', amount: 2 };
     }
   }
 
@@ -179,7 +181,7 @@ class TexasHoldem {
             // reference to the acting player.
             player.lastAction = action;
             previousActions[player.id] = action;
-            return {player: player, action: action};
+            return { player: player, action: action };
           });
         });
     });
@@ -196,7 +198,7 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerAction(player, action, previousActions, roundEnded) {
-    switch (action) {
+    switch (action.name) {
     case 'fold':
       this.onPlayerFolded(player, roundEnded);
       break;
@@ -251,7 +253,7 @@ class TexasHoldem {
   onPlayerChecked(player, previousActions, roundEnded) {
     let playersRemaining = _.filter(this.players, p => p.isInHand);
     let everyoneChecked = _.every(playersRemaining, p =>
-      p.lastAction === 'check' || p.lastAction === 'call');
+      p.lastAction !== null && (p.lastAction.name === 'check' || p.lastAction.name === 'call'));
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     if (everyoneChecked && everyoneHadATurn) {
@@ -269,7 +271,8 @@ class TexasHoldem {
   // Returns nothing
   onPlayerCalled(player, roundEnded) {
     let playersRemaining = _.filter(this.players, p => p.isInHand && !p.isBettor);
-    let everyoneCalled = _.every(playersRemaining, p => p.lastAction === 'call');
+    let everyoneCalled = _.every(playersRemaining, p =>
+      p.lastAction !== null && p.lastAction.name === 'call');
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     if (everyoneCalled && everyoneHadATurn) {
@@ -445,7 +448,7 @@ class TexasHoldem {
         title: `Dealing the ${round}:`,
         fallback: this.board.toString(),
         text: this.board.toString(),
-        color: "good",
+        color: 'good',
         image_url: url
       }];
 

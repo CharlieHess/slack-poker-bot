@@ -37,7 +37,15 @@ class PlayerStatus {
       let blindIndicator = bigBlindText || smallBlindText || ' ';
       row.push(blindIndicator);
 
-      row.push(player.lastAction || '');
+      if (player.lastAction) {
+        let actionIndicator = player.lastAction.name;
+        if (actionIndicator === 'bet' || actionIndicator === 'raise') {
+          actionIndicator += ` $${player.lastAction.amount}`;
+        }
+        row.push(actionIndicator);
+      } else {
+        row.push('');
+      }
 
       table.push(row);
     }
