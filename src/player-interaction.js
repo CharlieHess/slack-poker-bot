@@ -54,8 +54,8 @@ class PlayerInteraction {
 
     // Look for text that conforms to a player action.
     let playerAction = messages.where((e) => e.user === player.id)
-      .map((e) => PlayerInteraction.actionForMessage(e.text, availableActions))
-      .where((action) => action !== '')
+      .map((e) => PlayerInteraction.actionFromMessage(e.text, availableActions))
+      .where((action) => action !== null)
       .publish();
 
     playerAction.connect();
@@ -63,7 +63,9 @@ class PlayerInteraction {
 
     // If the user times out, they will be auto-folded unless they can check.
     let actionForTimeout = timeExpired.map(() =>
-      availableActions.indexOf('check') > -1 ? 'check' : 'fold');
+      availableActions.indexOf('check') > -1 ?
+        { name: 'check' } :
+        { name: 'fold' });
 
     // NB: Take the first result from the player action, the timeout, and a bot
     // action (only applicable to bots).
@@ -73,7 +75,14 @@ class PlayerInteraction {
       .take(1)
       .do((action) => {
         disp.dispose();
-        channel.send(`${player.name} ${action}s.`);
+        let message = `${player.name} ${action.name}s`;
+        if (action.name === 'bet')
+          message += ` $${action.amount}.`;
+        else if (action.name === 'raise')
+          message += ` to $${action.amount}.`;
+        else
+          message += '.';
+        channel.send(message);
       });
   }
 
@@ -127,8 +136,8 @@ class PlayerInteraction {
   // Returns an array of strings
   static getAvailableActions(player, previousActions) {
     let actions = _.values(previousActions);
-    let playerBet = actions.indexOf('bet') > -1;
-    let playerRaised = actions.indexOf('raise') > -1;
+    let playerBet = actions.some(a => a.name === 'bet');
+    let playerRaised = actions.some(a => a.name === 'raise');
 
     let availableActions = [];
 
@@ -147,34 +156,59 @@ class PlayerInteraction {
     return availableActions;
   }
 
-  // Private: Maps abbreviated text for a player action to its canonical name.
+  // Private: Parse player input into a valid action.
   //
-  // text - The text of the player message
+  // text - The text that the player entered
   // availableActions - An array of the actions available to this player
+  // defaultBet - (Optional) The default bet amount, used if a number cannot be
+  //              parsed from the input text
   //
-  // Returns the canonical action
-  static actionForMessage(text, availableActions) {
-    if (!text) return '';
+  // Returns an object representing the action, with keys for the name and
+  // bet amount, or null if the input was invalid.
+  static actionFromMessage(text, availableActions, defaultBet=1) {
+    if (!text) return null;
 
-    switch (text.toLowerCase()) {
+    let input = text.trim().toLowerCase().split(/\s+/);
+    if (!input[0]) return null;
+
+    let name = '';
+    let amount = 0;
+
+    switch (input[0]) {
     case 'c':
-      return availableActions[0];
+      name = availableActions[0];
+      break;
     case 'call':
-      return 'call';
+      name = 'call';
+      break;
     case 'check':
-      return 'check';
+      name = 'check';
+      break;
     case 'f':
     case 'fold':
-      return 'fold';
+      name = 'fold';
+      break;
     case 'b':
     case 'bet':
-      return 'bet';
+      name = 'bet';
+      amount = PlayerInteraction.betFromMessage(input[1], defaultBet);
+      break;
     case 'r':
     case 'raise':
-      return 'raise';
+      name = 'raise';
+      amount = PlayerInteraction.betFromMessage(input[1], defaultBet);
+      break;
     default:
-      return '';
+      return null;
     }
+
+    return { name: name, amount: amount };
+  }
+
+  static betFromMessage(text, defaultBet=1) {
+    if (!text) return defaultBet;
+    let bet = parseInt(text);
+    return isNaN(bet) ? defaultBet : bet;
   }
 }
 
