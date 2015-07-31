@@ -25,6 +25,7 @@ class PlayerStatus {
       let player = players[idx];
       let turnIndicator = player === actingPlayer ? '→ ' : '  ';
       row.push(`${turnIndicator}${player.name}`);
+      row.push(`$${player.chips}`);
 
       let handIndicator = player.isInHand ? '🂠' : ' ';
       row.push(handIndicator);

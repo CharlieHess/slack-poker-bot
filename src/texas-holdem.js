@@ -23,17 +23,20 @@ class TexasHoldem {
     this.players = players;
     this.scheduler = scheduler;
 
+    this.deck = new Deck();
+    this.smallBlind = 1;
+    this.bigBlind = this.smallBlind * 2;
+    this.quitGame = new rx.Subject();
+
     // Cache the direct message channels for each player as we'll be using
     // them often, and fetching them takes linear time per number of users.
     this.playerDms = {};
     for (let player of this.players) {
       this.playerDms[player.id] = this.slack.getDMByName(player.name);
-    }
 
-    this.deck = new Deck();
-    this.smallBlind = 1;
-    this.bigBlind = this.smallBlind * 2;
-    this.quitGame = new rx.Subject();
+      // Each player starts with 100 big blinds.
+      player.chips = this.bigBlind * 100;
+    }
   }
 
   // Public: Starts a new game.
@@ -267,9 +270,7 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerChecked(player, previousActions, roundEnded) {
-    let playersRemaining = _.filter(this.players, p => p.isInHand);
-    let everyoneChecked = _.every(playersRemaining, p =>
-      p.lastAction !== null && (p.lastAction.name === 'check' || p.lastAction.name === 'call'));
+    let everyoneChecked = this.everyPlayerTookAction(['check', 'call'], p => p.isInHand);
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     if (everyoneChecked && everyoneHadATurn) {
@@ -286,15 +287,19 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerCalled(player, roundEnded) {
-    let playersRemaining = _.filter(this.players, p => p.isInHand && !p.isBettor);
-    let everyoneCalled = _.every(playersRemaining, p =>
-      p.lastAction !== null && p.lastAction.name === 'call');
+    let everyoneCalled = this.everyPlayerTookAction(['call'], p => p.isInHand && !p.isBettor);
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     if (everyoneCalled && everyoneHadATurn) {
       let result = { isHandComplete: false };
       roundEnded.onNext(result);
     }
+  }
+
+  everyPlayerTookAction(actions, playerPredicate) {
+    let playersRemaining = _.filter(this.players, playerPredicate);
+    return _.every(playersRemaining, p => p.lastAction !== null &&
+      actions.indexOf(p.lastAction.name) > -1);
   }
 
   // Private: When a player bets, assign them as the current bettor. The
