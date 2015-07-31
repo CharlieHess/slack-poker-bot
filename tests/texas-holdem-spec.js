@@ -192,19 +192,19 @@ describe('TexasHoldem', function() {
     // Doyle is SB, Stu is BB, Patrik is UTG.
     assert(game.actingPlayer.name === 'Patrik Antonius');
 
-    // Check all the way down to Stu.
-    messages.onNext({user: 4, text: "Check"});
+    // Call all the way down to Stu.
+    messages.onNext({user: 4, text: "Call"});
     scheduler.advanceBy(5000);
-    messages.onNext({user: 5, text: "Check"});
+    messages.onNext({user: 5, text: "Call"});
     scheduler.advanceBy(5000);
-    messages.onNext({user: 1, text: "check"});
+    messages.onNext({user: 1, text: "call"});
     scheduler.advanceBy(5000);
-    messages.onNext({user: 2, text: "Check"});
+    messages.onNext({user: 2, text: "Call"});
     scheduler.advanceBy(5000);
 
-    // Stu makes a bet.
+    // Stu has the option, and raises.
     assert(game.actingPlayer.name === 'Stu Ungar');
-    messages.onNext({user: 3, text: "Bet"});
+    messages.onNext({user: 3, text: "Raise"});
     scheduler.advanceBy(5000);
 
     // Everyone folds except Doyle.

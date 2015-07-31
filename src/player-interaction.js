@@ -202,7 +202,10 @@ class PlayerInteraction {
       return null;
     }
 
-    return { name: name, amount: amount };
+    // NB: Unavailable actions are always invalid.
+    return availableActions.indexOf(name) > -1 ?
+      { name: name, amount: amount } :
+      null;
   }
 
   static betFromMessage(text, defaultBet=1) {
