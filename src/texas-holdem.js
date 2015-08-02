@@ -155,7 +155,7 @@ class TexasHoldem {
       player.hasOption = false;
     }
 
-    this.currentBet = null;
+    this.currentBet = 0;
 
     if (round === 'preflop') {
       this.postBlinds(previousActions);

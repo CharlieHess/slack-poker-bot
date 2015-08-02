@@ -46,6 +46,48 @@ describe('TexasHoldem', function() {
     game.tableFormatter = "\n";
   });
 
+  it('should handle default bets and raises', function() {
+    game.start(0);
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "raise"});
+    scheduler.advanceBy(5000);
+    assert(game.currentBet === 4);
+    assert(game.currentPot === 7);
+
+    messages.onNext({user: 5, text: "raise"});
+    scheduler.advanceBy(5000);
+    assert(game.currentBet === 8);
+    assert(game.currentPot === 15);
+
+    messages.onNext({user: 1, text: "raise"});
+    scheduler.advanceBy(5000);
+    assert(game.currentBet === 16);
+    assert(game.currentPot === 31);
+
+    messages.onNext({user: 2, text: "fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "fold"});
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "call"});
+    scheduler.advanceBy(5000);
+    assert(game.currentBet === 16);
+    assert(game.currentPot === 47);
+
+    messages.onNext({user: 5, text: "call"});
+    scheduler.advanceBy(5000);
+    assert(game.currentBet === 0);
+    assert(game.currentPot === 63);
+
+    messages.onNext({user: 4, text: "bet"});
+    scheduler.advanceBy(5000);
+    assert(game.currentBet === 1);
+    assert(game.currentPot === 64);
+
+    game.quit();
+  });
+
   it('should handle all-ins correctly', function() {
     game.start(0);
     scheduler.advanceBy(5000);
