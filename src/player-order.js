@@ -34,7 +34,7 @@ module.exports = class PlayerOrder {
   // comparing indices.
   //
   // actingPlayer - The player who is acting
-  // players - A list of all players in the hand, sorted by position
+  // players - An array of all players in the hand, sorted by position
   //
   // Returns true if this player is the last to act, false otherwise
   static isLastToAct(actingPlayer, players) {
@@ -58,5 +58,21 @@ module.exports = class PlayerOrder {
     return playerWithOption ?
       actingPlayer === playerWithOption :
       (currentIndex + 1) % playersRemaining.length === bettorIndex;
+  }
+
+  // Public: Returns the index of the next player to act.
+  //
+  // index - The current index
+  // players - An array of all players in the hand, sorted by position
+  //
+  // Returns the index of the next player in the hand
+  static getNextPlayerIndex(index, players) {
+    let player = null;
+    do {
+      index = (index + 1) % players.length;
+      player = players[index];
+    } while (!player.isInHand);
+
+    return index;
   }
 };

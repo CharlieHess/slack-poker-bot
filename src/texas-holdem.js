@@ -103,6 +103,21 @@ class TexasHoldem {
     return handEnded;
   }
 
+  // Private: Adds players to the hand if they have enough chips and determines
+  // small blind and big blind indices.
+  //
+  // Returns nothing
+  setupPlayers() {
+    for (let player of this.players) {
+      player.isInHand = player.chips > 0;
+      player.isBettor = false;
+    }
+
+    this.currentPot = 0;
+    this.smallBlindIdx = PlayerOrder.getNextPlayerIndex(this.dealerButton, this.players);
+    this.bigBlindIdx = PlayerOrder.getNextPlayerIndex(this.smallBlindIdx, this.players);
+  }
+
   // Private: Handles the logic for a round of betting.
   //
   // round - The name of the betting round, e.g., 'preflop', 'flop', 'turn'
@@ -110,7 +125,7 @@ class TexasHoldem {
   // Returns an {Observable} signaling the completion of the round
   doBettingRound(round) {
     // NB: If every player is already all-in, end this round early.
-    let playersRemaining = _.filter(this.players, p => p.isInHand);
+    let playersRemaining = this.getPlayersInHand();
     if (_.every(playersRemaining, p => p.isAllIn)) {
       let result = { isHandComplete: false };
       return rx.Observable.return(result);
@@ -149,7 +164,7 @@ class TexasHoldem {
   //
   // Returns nothing
   resetPlayersForBetting(round, previousActions) {
-    for (let player of this.orderedPlayers) {
+    for (let player of this.players) {
       player.lastAction = null;
       player.isBettor = false;
       player.hasOption = false;
@@ -291,7 +306,7 @@ class TexasHoldem {
     let everyoneActed = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     player.isInHand = false;
-    let playersRemaining = _.filter(this.players, p => p.isInHand);
+    let playersRemaining = this.getPlayersInHand();
 
     if (playersRemaining.length === 1) {
       let result = {
@@ -456,10 +471,13 @@ class TexasHoldem {
     let message = '';
     if (result.isSplitPot) {
       _.each(result.winners, winner => {
-        if (_.last(result.winners) !== winner)
+        if (_.last(result.winners) !== winner) {
           message += `${winner.name}, `;
-        else
+          winner.chips += Math.floor(this.currentPot / result.winners.length);
+        } else {
           message += `and ${winner.name} split the pot`;
+          winner.chips += Math.ceil(this.currentPot / result.winners.length);
+        }
       });
       message += ` with ${result.handName}: ${result.hand.toString()}.`;
     } else {
@@ -480,28 +498,13 @@ class TexasHoldem {
     handEnded.onCompleted();
   }
 
-  // Private: Adds players to the hand if they have enough chips and determines
-  // small blind and big blind indices.
-  //
-  // Returns nothing
-  setupPlayers() {
-    for (let player of this.players) {
-      player.isInHand = true;
-      player.isBettor = false;
-    }
-
-    this.currentPot = 0;
-    this.smallBlindIdx = (this.dealerButton + 1) % this.players.length;
-    this.bigBlindIdx = (this.smallBlindIdx + 1) % this.players.length;
-  }
-
   // Private: Deals hole cards to each player in the game. To communicate this
   // to the players, we send them a DM with the text description of the cards.
   // We can't post in channel for obvious reasons.
   //
   // Returns nothing
   dealPlayerCards() {
-    this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, 'deal');
+    this.orderedPlayers = PlayerOrder.determine(this.getPlayersInHand(), this.dealerButton, 'deal');
 
     for (let player of this.orderedPlayers) {
       let card = this.deck.drawCard();

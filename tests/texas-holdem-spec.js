@@ -116,7 +116,10 @@ describe('TexasHoldem', function() {
 
     var winner = game.lastHandResult.winners[0];
     assert(winner.id === 1 || winner.id === 4);
+
+    // Check that the losing player was eliminated.
     assert(game.board.length === 0);
+    assert(game.getPlayersInHand().length === 4);
     game.quit();
   });
 
