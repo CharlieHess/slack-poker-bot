@@ -26,7 +26,7 @@ class TexasHoldem {
     this.deck = new Deck();
     this.smallBlind = 1;
     this.bigBlind = this.smallBlind * 2;
-    this.quitGame = new rx.Subject();
+    this.gameEnded = new rx.Subject();
 
     // Cache the direct message channels for each player as we'll be using
     // them often, and fetching them takes linear time per number of users.
@@ -48,6 +48,7 @@ class TexasHoldem {
   //
   // Returns a {Disposable} that will end this game early
   start(dealerButton=null, timeBetweenHands=5000) {
+    this.isRunning = true;
     this.dealerButton = dealerButton === null ?
       Math.floor(Math.random() * this.players.length) :
       dealerButton;
@@ -56,16 +57,19 @@ class TexasHoldem {
       .flatMap(() => this.playHand()
         .flatMap(() => rx.Observable.timer(timeBetweenHands, this.scheduler)))
       .repeat()
-      .takeUntil(this.quitGame)
+      .takeUntil(this.gameEnded)
       .subscribe();
   }
 
-  // Public: Ends the current game immediately and disposes all resources
-  // associated with the game.
+  // Public: Ends the current game immediately.
   //
   // Returns nothing
-  quit() {
-    this.quitGame.onNext();
+  quit(winner) {
+    if (winner) {
+      this.channel.send(`Congratulations ${winner.name}, you've won!`);
+    }
+    this.gameEnded.onNext(winner);
+    this.isRunning = false;
   }
 
   // Public: Get all players still in the current hand.
@@ -463,6 +467,18 @@ class TexasHoldem {
 
     handEnded.onNext(true);
     handEnded.onCompleted();
+    this.checkForGameWinner();
+  }
+
+  // Private: If there is only one player with chips left, we've got a winner.
+  //
+  // Returns nothing
+  checkForGameWinner() {
+    let playersWithChips = _.filter(this.players, p => p.chips > 0);
+    if (playersWithChips.length === 1) {
+      let winner = playersWithChips[0];
+      this.quit(winner);
+    }
   }
 
   // Private: Deals hole cards to each player in the game. To communicate this

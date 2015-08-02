@@ -46,6 +46,24 @@ describe('TexasHoldem', function() {
     game.tableFormatter = "\n";
   });
 
+  it('should end the game when all players have been eliminated', function() {
+    game.start(0);
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "Raise 200"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 1, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Call"});
+    scheduler.advanceBy(5000);
+
+    assert(!game.isRunning);
+  });
+
   it('should handle default bets and raises', function() {
     game.start(0);
     scheduler.advanceBy(5000);
