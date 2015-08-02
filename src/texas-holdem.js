@@ -110,6 +110,7 @@ class TexasHoldem {
   setupPlayers() {
     for (let player of this.players) {
       player.isInHand = player.chips > 0;
+      player.isAllIn = false;
       player.isBettor = false;
     }
 

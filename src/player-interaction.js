@@ -129,20 +129,27 @@ class PlayerInteraction {
   // Returns an array of strings
   static getAvailableActions(player, previousActions) {
     let actions = _.values(previousActions);
-    let playerBet = actions.some(a => a.name === 'bet');
-    let playerRaised = actions.some(a => a.name === 'raise');
+    let betActions = _.filter(actions, a => a.name === 'bet' || a.name === 'raise');
+    let hasBet = betActions.length > 0;
 
     let availableActions = [];
 
     if (player.hasOption) {
       availableActions.push('check');
       availableActions.push('raise');
-    } else if (playerBet || playerRaised) {
+    } else if (hasBet) {
       availableActions.push('call');
       availableActions.push('raise');
     } else {
       availableActions.push('check');
       availableActions.push('bet');
+    }
+
+    // Prevent players from raising when they don't have enough chips.
+    let raiseIndex = availableActions.indexOf('raise');
+    if (raiseIndex > -1 &&
+      _.max(betActions, a => a.amount).amount >= player.chips) {
+      availableActions.splice(raiseIndex, 1);
     }
 
     availableActions.push('fold');

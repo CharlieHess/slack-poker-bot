@@ -13,10 +13,17 @@ class AggroBot {
 
   // TOO STRONK
   getAction(availableActions, previousActions) {
-    let action = availableActions.indexOf('raise') > -1 ?
-      { name: 'raise' } :
-      { name: 'bet' };
-    let delay = 1000 + (Math.random() * 500);
-    return rx.Observable.timer(delay).map(() => action);
+    let desiredAction = 'call';
+
+    if (availableActions.indexOf('raise') > -1) {
+      desiredAction = 'raise';
+    } else if (availableActions.indexOf('bet') > -1) {
+      desiredAction = 'bet';
+    }
+
+    let delay = 2000 + (Math.random() * 2000);
+    return rx.Observable.timer(delay).map(() => {
+      return { name: desiredAction };
+    });
   }
 };
