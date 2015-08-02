@@ -109,6 +109,13 @@ class TexasHoldem {
   //
   // Returns an {Observable} signaling the completion of the round
   doBettingRound(round) {
+    // NB: If every player is already all-in, end this round early.
+    let playersRemaining = _.filter(this.players, p => p.isInHand);
+    if (_.every(playersRemaining, p => p.isAllIn)) {
+      let result = { isHandComplete: false };
+      return rx.Observable.return(result);
+    }
+
     this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, round);
     let previousActions = {};
     let roundEnded = new rx.Subject();
@@ -119,7 +126,7 @@ class TexasHoldem {
     // an action. This cycle will be repeated until the round is ended, which
     // can occur after any player action.
     let queryPlayers = rx.Observable.fromArray(this.orderedPlayers)
-      .where((player) => player.isInHand)
+      .where((player) => player.isInHand && !player.isAllIn)
       .concatMap((player) => this.deferredActionForPlayer(player, previousActions))
       .repeat()
       .reduce((acc, x) => {

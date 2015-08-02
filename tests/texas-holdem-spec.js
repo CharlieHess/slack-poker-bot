@@ -64,13 +64,12 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 4, text: "Raise 200"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 198);
+    assert(players[3].chips === 0);
+    assert(players[3].isAllIn);
 
     messages.onNext({user: 1, text: "Call"});
-    scheduler.advanceBy(5000);
-
-    assert(players[0].chips === 0);
-    assert(players[3].chips === 0);
     assert(game.currentPot === 403);
+    scheduler.advanceBy(5000);
 
     var winner = game.lastHandResult.winners[0];
     assert(winner.id === 1 || winner.id === 4);
