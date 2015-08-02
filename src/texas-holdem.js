@@ -155,6 +155,8 @@ class TexasHoldem {
       player.hasOption = false;
     }
 
+    this.currentBet = null;
+
     if (round === 'preflop') {
       this.postBlinds(previousActions);
     }
@@ -205,8 +207,11 @@ class TexasHoldem {
         this.actingPlayer = player;
 
         return PlayerInteraction.getActionForPlayer(this.messages, this.channel,
-          player, previousActions, this.smallBlind, this.scheduler)
-          .map((action) => {
+          player, previousActions, this.scheduler)
+          .map(action => {
+            this.validatePlayerAction(player, action);
+            this.postActionToChannel(player, action);
+
             // NB: Save the action in various structures and return it with a
             // reference to the acting player.
             player.lastAction = action;
@@ -215,6 +220,34 @@ class TexasHoldem {
           });
         });
     });
+  }
+
+  validatePlayerAction(player, action) {
+    if (action.name === 'bet' || action.name === 'raise') {
+      // If another player has bet, the default raise is 2x. Otherwise the
+      // minimum bet is 1 small blind.
+      if (isNaN(action.amount)) {
+        action.amount = this.currentBet ?
+          this.currentBet * 2 :
+          this.smallBlind;
+      }
+
+      if (action.amount >= player.chips) {
+        action.amount = player.chips;
+      }
+    }
+  }
+
+  postActionToChannel(player, action) {
+    let message = `${player.name} ${action.name}s`;
+    if (action.name === 'bet')
+      message += ` $${action.amount}.`;
+    else if (action.name === 'raise')
+      message += ` to $${action.amount}.`;
+    else
+      message += '.';
+
+    this.channel.send(message);
   }
 
   // Private: Occurs when a player action is received. Check the remaining

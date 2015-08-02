@@ -46,7 +46,7 @@ describe('TexasHoldem', function() {
     game.tableFormatter = "\n";
   });
 
-  it.only('should handle all-ins correctly', function() {
+  it('should handle all-ins correctly', function() {
     game.start(0);
     scheduler.advanceBy(5000);
 
@@ -63,6 +63,7 @@ describe('TexasHoldem', function() {
 
     messages.onNext({user: 4, text: "Raise 200"});
     scheduler.advanceBy(5000);
+
     assert(game.currentBet === 198);
     assert(players[3].chips === 0);
     assert(players[3].isAllIn);

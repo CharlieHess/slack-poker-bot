@@ -143,9 +143,9 @@ describe('PlayerInteraction', function() {
 
     it('should parse bet and raise actions', function() {
       var availableActions = ['check', 'bet', 'fold'];
-      var action = PlayerInteraction.actionFromMessage('BET', availableActions, 5);
+      var action = PlayerInteraction.actionFromMessage('BET', availableActions);
       assert(action.name === 'bet');
-      assert(action.amount === 5);
+      assert(isNaN(action.amount));
 
       action = PlayerInteraction.actionFromMessage('bet 25', availableActions);
       assert(action.name === 'bet');
@@ -155,9 +155,9 @@ describe('PlayerInteraction', function() {
       assert(action.name === 'bet');
       assert(action.amount === 5000);
 
-      action = PlayerInteraction.actionFromMessage('bet some money 999', availableActions, 2);
+      action = PlayerInteraction.actionFromMessage('bet some money 999', availableActions);
       assert(action.name === 'bet');
-      assert(action.amount === 2);
+      assert(isNaN(action.amount));
 
       action = PlayerInteraction.actionFromMessage('not a bet', availableActions);
       assert(action === null);
@@ -166,9 +166,9 @@ describe('PlayerInteraction', function() {
       assert(action === null);
 
       availableActions = ['call', 'raise', 'fold'];
-      action = PlayerInteraction.actionFromMessage('raise infinity', availableActions, 1);
+      action = PlayerInteraction.actionFromMessage('raise infinity', availableActions);
       assert(action.name === 'raise');
-      assert(action.amount === 1);
+      assert(isNaN(action.amount));
 
       action = PlayerInteraction.actionFromMessage('  RAISE    200   ', availableActions);
       assert(action.name === 'raise');
@@ -176,29 +176,6 @@ describe('PlayerInteraction', function() {
 
       action = PlayerInteraction.actionFromMessage('raising children is hard', availableActions);
       assert(action === null);
-    });
-
-    it('should not let players bet more chips than they have', function() {
-      var availableActions = ['bet', 'raise', 'fold'];
-      var action = PlayerInteraction.actionFromMessage('bet 25', availableActions, 5, 10);
-      assert(action.name === 'bet');
-      assert(action.amount === 10);
-
-      action = PlayerInteraction.actionFromMessage('bet 25', availableActions, 5, 2);
-      assert(action.name === 'bet');
-      assert(action.amount === 2);
-
-      action = PlayerInteraction.actionFromMessage('bet infinity', availableActions, 5, 2);
-      assert(action.name === 'bet');
-      assert(action.amount === 2);
-
-      action = PlayerInteraction.actionFromMessage('raise 100', availableActions, 1, 99);
-      assert(action.name === 'raise');
-      assert(action.amount === 99);
-
-      action = PlayerInteraction.actionFromMessage('raise ABC', availableActions, 2, 10);
-      assert(action.name === 'raise');
-      assert(action.amount === 2);
     });
   });
 });

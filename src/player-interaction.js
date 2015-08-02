@@ -15,14 +15,14 @@ class PlayerInteraction {
   // `onCompleted` when time expires or the max number of players join.
   static pollPotentialPlayers(messages, channel, scheduler=rx.Scheduler.timeout, timeout=5, maxPlayers=6) {
     let intro = `Who wants to play?`;
-    let formatMessage = (t) => `Respond with 'yes' in this channel in the next ${t} seconds.`;
+    let formatMessage = t => `Respond with 'yes' in this channel in the next ${t} seconds.`;
     let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, intro,
       formatMessage, scheduler, timeout);
 
     // Look for messages containing the word 'yes' and map them to a unique
     // user ID, constrained to `maxPlayers` number of players.
-    let newPlayers = messages.where((e) => e.text && e.text.toLowerCase().match(/\byes\b/))
-      .map((e) => e.user)
+    let newPlayers = messages.where(e => e.text && e.text.toLowerCase().match(/\byes\b/))
+      .map(e => e.user)
       .distinct()
       .take(maxPlayers)
       .publish();
@@ -40,25 +40,23 @@ class PlayerInteraction {
   // channel - The {Channel} object, used for posting messages
   // player - The player being polled
   // previousActions - A map of players to their most recent action
-  // defaultBet - The default bet to use
   // scheduler - (Optional) The scheduler to use for timing events
   // timeout - (Optional) The amount of time to conduct polling, in seconds
   //
   // Returns an {Observable} indicating the action the player took. If time
   // expires, a 'timeout' action is returned.
-  static getActionForPlayer(messages, channel, player, previousActions, defaultBet,
+  static getActionForPlayer(messages, channel, player, previousActions,
     scheduler=rx.Scheduler.timeout, timeout=30) {
     let intro = `${player.name}, it's your turn to act.`;
     let availableActions = PlayerInteraction.getAvailableActions(player, previousActions);
-    let formatMessage = (t) => PlayerInteraction.buildActionMessage(availableActions, t);
+    let formatMessage = t => PlayerInteraction.buildActionMessage(availableActions, t);
     let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, intro,
       formatMessage, scheduler, timeout);
 
     // Look for text that conforms to a player action.
-    let playerAction = messages.where((e) => e.user === player.id)
-      .map((e) => PlayerInteraction.actionFromMessage(e.text,
-        availableActions, defaultBet, player.chips))
-      .where((action) => action !== null)
+    let playerAction = messages.where(e => e.user === player.id)
+      .map(e => PlayerInteraction.actionFromMessage(e.text, availableActions))
+      .where(action => action !== null)
       .publish();
 
     playerAction.connect();
@@ -78,22 +76,7 @@ class PlayerInteraction {
     // action (only applicable to bots).
     return rx.Observable.merge(playerAction, actionForTimeout, botAction)
       .take(1)
-      .do((action) => {
-        disp.dispose();
-        PlayerInteraction.afterPlayerAction(channel, player, action);
-      });
-  }
-
-  static afterPlayerAction(channel, player, action) {
-    let message = `${player.name} ${action.name}s`;
-    if (action.name === 'bet')
-      message += ` $${action.amount}.`;
-    else if (action.name === 'raise')
-      message += ` to $${action.amount}.`;
-    else
-      message += '.';
-
-    channel.send(message);
+      .do(() => disp.dispose());
   }
 
   // Private: Posts a message to the channel with some timeout, that edits
@@ -170,13 +153,10 @@ class PlayerInteraction {
   //
   // text - The text that the player entered
   // availableActions - An array of the actions available to this player
-  // defaultBet - The default bet amount, used if a number cannot be parsed
-  //              from the input text
-  // playerChips - The amount of chips the player has remaining
   //
   // Returns an object representing the action, with keys for the name and
   // bet amount, or null if the input was invalid.
-  static actionFromMessage(text, availableActions, defaultBet, playerChips) {
+  static actionFromMessage(text, availableActions) {
     if (!text) return null;
 
     let input = text.trim().toLowerCase().split(/\s+/);
@@ -202,12 +182,12 @@ class PlayerInteraction {
     case 'b':
     case 'bet':
       name = 'bet';
-      amount = PlayerInteraction.betFromMessage(input[1], defaultBet, playerChips);
+      amount = input[1] ? parseInt(input[1]) : NaN;
       break;
     case 'r':
     case 'raise':
       name = 'raise';
-      amount = PlayerInteraction.betFromMessage(input[1], defaultBet, playerChips);
+      amount = input[1] ? parseInt(input[1]) : NaN;
       break;
     default:
       return null;
@@ -217,23 +197,6 @@ class PlayerInteraction {
     return availableActions.indexOf(name) > -1 ?
       { name: name, amount: amount } :
       null;
-  }
-
-  // Private: Parse the bet amount from a string.
-  //
-  // text - The player input
-  // defaultBet - The default bet to use if the parse fails
-  // playerChips - The amount of chips the player has remaining
-  //
-  // Returns a number representing the bet amount
-  static betFromMessage(text, defaultBet, playerChips) {
-    if (!text) return defaultBet;
-
-    let bet = parseInt(text);
-    bet = isNaN(bet) ? defaultBet : bet;
-    bet = (playerChips && playerChips < bet) ? playerChips : bet;
-
-    return bet;
   }
 }
 
