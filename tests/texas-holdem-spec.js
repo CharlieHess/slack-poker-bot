@@ -46,6 +46,36 @@ describe('TexasHoldem', function() {
     game.tableFormatter = "\n";
   });
 
+  it.only('should handle all-ins correctly', function() {
+    game.start(0);
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 1, text: "raise 20"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Fold"});
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "Raise 198"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 1, text: "Call"});
+    scheduler.advanceBy(5000);
+
+    assert(players[0].chips === 0);
+    assert(players[3].chips === 0);
+    assert(game.currentPot === 403);
+
+    var winner = game.lastHandResult.winners[0];
+    assert(winner.id === 1 || winner.id === 4);
+    assert(game.board.length === 0);
+    game.quit();
+  });
+
   it('should handle split pots correctly', function() {
     game.start(0);
     scheduler.advanceBy(5000);
