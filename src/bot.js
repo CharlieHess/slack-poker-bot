@@ -30,32 +30,34 @@ class Bot {
   // by polling players and starting a game.
   respondToDealMessages() {
     let messages = rx.Observable.fromEvent(this.slack, 'message')
-      .where((e) => e.type === 'message');
+      .where(e => e.type === 'message');
 
     // Messages directed at the bot that contain the word "deal" are valid
-    let dealGameMessages = messages.where((e) =>
+    let dealGameMessages = messages.where(e =>
       MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
         e.text.toLowerCase().match(/\bdeal\b/));
 
-    dealGameMessages.subscribe((e) => {
+    dealGameMessages.subscribe(e => {
       let channel = this.slack.getChannelGroupOrDMByID(e.channel);
 
-      if (this.game) {
+      if (this.game && this.game.isRunning) {
         channel.send("A game is already in progress, I can't deal another.");
       } else {
         let players = [];
         this.addBotPlayers(players);
 
-        PlayerInteraction.pollPotentialPlayers(messages, channel).subscribe(
-          (userId) => {
+        PlayerInteraction.pollPotentialPlayers(messages, channel)
+          .subscribe(userId => {
             let player = this.slack.getUserByID(userId);
             players.push(player);
 
             channel.send(`${player.name} has joined the game.`);
           },
-          (err) => console.log(`Error while polling players: ${err.stack || err}`),
-          () => this.startGame(messages, channel, players)
-        );
+          err => console.log(`Error while polling players: ${err.stack || err}`),
+          () => {
+            let messagesInChannel = messages.where(e => e.channel === channel.id);
+            this.startGame(messagesInChannel, channel, players);
+          });
       }
     });
   }
@@ -75,12 +77,12 @@ class Bot {
     this.game = new TexasHoldem(this.slack, messages, channel, players);
     this.game.start();
 
-    let quitGameMessages = messages.where((e) =>
+    let quitGameMessages = messages.where(e =>
       MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
         e.text.toLowerCase().match(/quit game/));
 
     // TODO: Should poll players to make sure they all want to quit.
-    let listener = quitGameMessages.subscribe((e) => {
+    let listener = quitGameMessages.subscribe(e => {
       let player = this.slack.getUserByID(e.user);
       channel.send(`${player.name} has decided to quit the game. The game will end after this hand.`);
 
@@ -105,23 +107,23 @@ class Bot {
   // Private: Save which channels and groups this bot is in and log them.
   onClientOpened() {
     this.channels = _.keys(this.slack.channels)
-      .map((k) => this.slack.channels[k])
-      .filter((c) => c.is_member);
+      .map(k => this.slack.channels[k])
+      .filter(c => c.is_member);
 
     this.groups = _.keys(this.slack.groups)
-      .map((k) => this.slack.groups[k])
-      .filter((g) => g.is_open && !g.is_archived);
+      .map(k => this.slack.groups[k])
+      .filter(g => g.is_open && !g.is_archived);
 
     console.log(`Welcome to Slack. You are ${this.slack.self.name} of ${this.slack.team.name}`);
 
     if (this.channels.length > 0) {
-      console.log(`You are in: ${this.channels.map((c) => c.name).join(', ')}`);
+      console.log(`You are in: ${this.channels.map(c => c.name).join(', ')}`);
     } else {
       console.log('You are not in any channels.');
     }
 
     if (this.groups.length > 0) {
-      console.log(`As well as: ${this.groups.map((g) => g.name).join(', ')}`);
+      console.log(`As well as: ${this.groups.map(g => g.name).join(', ')}`);
     }
   }
 }
