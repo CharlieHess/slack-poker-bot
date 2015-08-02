@@ -15,14 +15,13 @@ A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in a
 ### TODO
 This bot can do all of the following:
 - [x] Initiate a game and poll players to join
-- [x] Handle player order, blinds, and basic betting actions
+- [x] Handle player order, blinds, and betting
+- [x] Handle chip stacks / pot calculations
 - [x] Send player's pocket cards as a DM
 - [x] Display board images
 - [x] Determine the best hand
 
 It still lacks support for:
-- [ ] Chip stacks / bet amounts
-- [ ] All-ins
 - [ ] Split pots
 - [ ] Deployability
 
