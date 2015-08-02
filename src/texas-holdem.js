@@ -237,34 +237,6 @@ class TexasHoldem {
     });
   }
 
-  validatePlayerAction(player, action) {
-    if (action.name === 'bet' || action.name === 'raise') {
-      // If another player has bet, the default raise is 2x. Otherwise the
-      // minimum bet is 1 small blind.
-      if (isNaN(action.amount)) {
-        action.amount = this.currentBet ?
-          this.currentBet * 2 :
-          this.smallBlind;
-      }
-
-      if (action.amount >= player.chips) {
-        action.amount = player.chips;
-      }
-    }
-  }
-
-  postActionToChannel(player, action) {
-    let message = `${player.name} ${action.name}s`;
-    if (action.name === 'bet')
-      message += ` $${action.amount}.`;
-    else if (action.name === 'raise')
-      message += ` to $${action.amount}.`;
-    else
-      message += '.';
-
-    this.channel.send(message);
-  }
-
   // Private: Occurs when a player action is received. Check the remaining
   // players and the previous actions, and possibly end the round of betting or
   // the hand entirely.
@@ -391,12 +363,6 @@ class TexasHoldem {
       player.chips -= amount;
       this.currentPot += amount;
     }
-  }
-
-  everyPlayerTookAction(actions, playerPredicate) {
-    let playersRemaining = _.filter(this.players, playerPredicate);
-    return _.every(playersRemaining, p => p.lastAction !== null &&
-      actions.indexOf(p.lastAction.name) > -1);
   }
 
   // Private: Displays the flop cards and does a round of betting. If the
@@ -551,6 +517,60 @@ class TexasHoldem {
       // just going to wait a second before continuing.
       return rx.Observable.timer(1000, this.scheduler);
     }).take(1);
+  }
+
+  // Private: If a player bet or raise, but didn't specify an amount or the
+  // amount was greater than their chip stack, this will correct it.
+  //
+  // player - The acting player
+  // action - The action that they took
+  //
+  // Returns nothing
+  validatePlayerAction(player, action) {
+    if (action.name === 'bet' || action.name === 'raise') {
+      // If another player has bet, the default raise is 2x. Otherwise the
+      // minimum bet is 1 small blind.
+      if (isNaN(action.amount)) {
+        action.amount = this.currentBet ?
+          this.currentBet * 2 :
+          this.smallBlind;
+      }
+
+      if (action.amount >= player.chips) {
+        action.amount = player.chips;
+      }
+    }
+  }
+
+  // Private: Posts a message to the channel describing a player's action.
+  //
+  // player - The acting player
+  // action - The action that they took
+  //
+  // Returns nothing
+  postActionToChannel(player, action) {
+    let message = `${player.name} ${action.name}s`;
+    if (action.name === 'bet')
+      message += ` $${action.amount}.`;
+    else if (action.name === 'raise')
+      message += ` to $${action.amount}.`;
+    else
+      message += '.';
+
+    this.channel.send(message);
+  }
+
+  // Private: Checks if all player actions adhered to some condition.
+  //
+  // actions - An array of strings describing the desired actions
+  // playerPredicate - A predicate to filter players on
+  //
+  // Returns true if every player that meets the predicate took one of the
+  // desired actions
+  everyPlayerTookAction(actions, playerPredicate) {
+    let playersRemaining = _.filter(this.players, playerPredicate);
+    return _.every(playersRemaining, p => p.lastAction !== null &&
+      actions.indexOf(p.lastAction.name) > -1);
   }
 }
 
