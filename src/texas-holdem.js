@@ -23,15 +23,20 @@ class TexasHoldem {
     this.players = players;
     this.scheduler = scheduler;
 
+    this.deck = new Deck();
+    this.smallBlind = 1;
+    this.bigBlind = this.smallBlind * 2;
+    this.gameEnded = new rx.Subject();
+
     // Cache the direct message channels for each player as we'll be using
     // them often, and fetching them takes linear time per number of users.
     this.playerDms = {};
     for (let player of this.players) {
       this.playerDms[player.id] = this.slack.getDMByName(player.name);
-    }
 
-    this.deck = new Deck();
-    this.quitGame = new rx.Subject();
+      // Each player starts with 100 big blinds.
+      player.chips = this.bigBlind * 100;
+    }
   }
 
   // Public: Starts a new game.
@@ -43,6 +48,7 @@ class TexasHoldem {
   //
   // Returns a {Disposable} that will end this game early
   start(dealerButton=null, timeBetweenHands=5000) {
+    this.isRunning = true;
     this.dealerButton = dealerButton === null ?
       Math.floor(Math.random() * this.players.length) :
       dealerButton;
@@ -51,16 +57,19 @@ class TexasHoldem {
       .flatMap(() => this.playHand()
         .flatMap(() => rx.Observable.timer(timeBetweenHands, this.scheduler)))
       .repeat()
-      .takeUntil(this.quitGame)
+      .takeUntil(this.gameEnded)
       .subscribe();
   }
 
-  // Public: Ends the current game immediately and disposes all resources
-  // associated with the game.
+  // Public: Ends the current game immediately.
   //
   // Returns nothing
-  quit() {
-    this.quitGame.onNext();
+  quit(winner) {
+    if (winner) {
+      this.channel.send(`Congratulations ${winner.name}, you've won!`);
+    }
+    this.gameEnded.onNext(winner);
+    this.isRunning = false;
   }
 
   // Public: Get all players still in the current hand.
@@ -98,12 +107,35 @@ class TexasHoldem {
     return handEnded;
   }
 
+  // Private: Adds players to the hand if they have enough chips and determines
+  // small blind and big blind indices.
+  //
+  // Returns nothing
+  setupPlayers() {
+    for (let player of this.players) {
+      player.isInHand = player.chips > 0;
+      player.isAllIn = false;
+      player.isBettor = false;
+    }
+
+    this.currentPot = 0;
+    this.smallBlindIdx = PlayerOrder.getNextPlayerIndex(this.dealerButton, this.players);
+    this.bigBlindIdx = PlayerOrder.getNextPlayerIndex(this.smallBlindIdx, this.players);
+  }
+
   // Private: Handles the logic for a round of betting.
   //
   // round - The name of the betting round, e.g., 'preflop', 'flop', 'turn'
   //
   // Returns an {Observable} signaling the completion of the round
   doBettingRound(round) {
+    // NB: If every player is already all-in, end this round early.
+    let playersRemaining = this.getPlayersInHand();
+    if (_.every(playersRemaining, p => p.isAllIn)) {
+      let result = { isHandComplete: false };
+      return rx.Observable.return(result);
+    }
+
     this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, round);
     let previousActions = {};
     let roundEnded = new rx.Subject();
@@ -114,7 +146,7 @@ class TexasHoldem {
     // an action. This cycle will be repeated until the round is ended, which
     // can occur after any player action.
     let queryPlayers = rx.Observable.fromArray(this.orderedPlayers)
-      .where((player) => player.isInHand)
+      .where((player) => player.isInHand && !player.isAllIn)
       .concatMap((player) => this.deferredActionForPlayer(player, previousActions))
       .repeat()
       .reduce((acc, x) => {
@@ -137,21 +169,39 @@ class TexasHoldem {
   //
   // Returns nothing
   resetPlayersForBetting(round, previousActions) {
-    for (let player of this.orderedPlayers) {
+    for (let player of this.players) {
       player.lastAction = null;
       player.isBettor = false;
       player.hasOption = false;
     }
 
+    this.currentBet = 0;
+
+    if (round === 'preflop') {
+      this.postBlinds(previousActions);
+    }
+  }
+
+  // Private: Posts blinds for a betting round.
+  //
+  // previousActions - A map of players to their most recent action
+  //
+  // Returns nothing
+  postBlinds(previousActions) {
+    let sbPlayer = this.players[this.smallBlindIdx];
+    let bbPlayer = this.players[this.bigBlindIdx];
+
     // NB: So, in the preflop round we want to treat the big blind as the
     // bettor. Because the bet was implict, that player also has an "option,"
     // i.e., they will be the last to act.
-    if (round === 'preflop') {
-      let bigBlind = this.players[this.bigBlind];
-      bigBlind.isBettor = true;
-      bigBlind.hasOption = true;
-      previousActions[bigBlind.id] = 'bet';
-    }
+    this.onPlayerBet(sbPlayer, this.smallBlind);
+    this.onPlayerBet(bbPlayer, this.bigBlind);
+    bbPlayer.hasOption = true;
+
+    previousActions[sbPlayer.id] =
+      sbPlayer.lastAction = { name: 'bet', amount: this.smallBlind };
+    previousActions[bbPlayer.id] =
+      bbPlayer.lastAction = { name: 'bet', amount: this.bigBlind };
   }
 
   // Private: Displays player position and who's next to act, pauses briefly,
@@ -167,19 +217,26 @@ class TexasHoldem {
     return rx.Observable.defer(() => {
 
       // Display player position and who's next to act before polling.
-      PlayerStatus.displayHandStatus(this.channel, this.players, player,
-        this.dealerButton, this.bigBlind, this.smallBlind, this.tableFormatter);
+      PlayerStatus.displayHandStatus(this.channel,
+        this.players, player,
+        this.currentPot, this.dealerButton,
+        this.bigBlindIdx, this.smallBlindIdx,
+        this.tableFormatter);
 
       return rx.Observable.timer(timeToPause, this.scheduler).flatMap(() => {
         this.actingPlayer = player;
 
-        return PlayerInteraction.getActionForPlayer(this.messages, this.channel, player, previousActions, this.scheduler)
-          .map((action) => {
+        return PlayerInteraction.getActionForPlayer(this.messages, this.channel,
+          player, previousActions, this.scheduler)
+          .map(action => {
+            this.validatePlayerAction(player, action);
+            this.postActionToChannel(player, action);
+
             // NB: Save the action in various structures and return it with a
             // reference to the acting player.
             player.lastAction = action;
             previousActions[player.id] = action;
-            return {player: player, action: action};
+            return { player: player, action: action };
           });
         });
     });
@@ -196,7 +253,7 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerAction(player, action, previousActions, roundEnded) {
-    switch (action) {
+    switch (action.name) {
     case 'fold':
       this.onPlayerFolded(player, roundEnded);
       break;
@@ -208,7 +265,7 @@ class TexasHoldem {
       break;
     case 'bet':
     case 'raise':
-      this.onPlayerBet(player);
+      this.onPlayerBet(player, action.amount);
       break;
     }
   }
@@ -226,7 +283,7 @@ class TexasHoldem {
     let everyoneActed = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     player.isInHand = false;
-    let playersRemaining = _.filter(this.players, p => p.isInHand);
+    let playersRemaining = this.getPlayersInHand();
 
     if (playersRemaining.length === 1) {
       let result = {
@@ -249,9 +306,7 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerChecked(player, previousActions, roundEnded) {
-    let playersRemaining = _.filter(this.players, p => p.isInHand);
-    let everyoneChecked = _.every(playersRemaining, p =>
-      p.lastAction === 'check' || p.lastAction === 'call');
+    let everyoneChecked = this.everyPlayerTookAction(['check', 'call'], p => p.isInHand);
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     if (everyoneChecked && everyoneHadATurn) {
@@ -268,8 +323,9 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerCalled(player, roundEnded) {
-    let playersRemaining = _.filter(this.players, p => p.isInHand && !p.isBettor);
-    let everyoneCalled = _.every(playersRemaining, p => p.lastAction === 'call');
+    this.updatePlayerChips(player, this.currentBet);
+
+    let everyoneCalled = this.everyPlayerTookAction(['call'], p => p.isInHand && !p.isBettor);
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     if (everyoneCalled && everyoneHadATurn) {
@@ -282,15 +338,36 @@ class TexasHoldem {
   // betting round will cycle through all players up to the bettor.
   //
   // player - The player who bet or raised
+  // amount - The amount that was bet
   //
   // Returns nothing
-  onPlayerBet(player) {
+  onPlayerBet(player, amount) {
     let currentBettor = _.find(this.players, p => p.isBettor);
     if (currentBettor) {
       currentBettor.isBettor = false;
       currentBettor.hasOption = false;
     }
+
     player.isBettor = true;
+    this.currentBet = amount;
+    this.updatePlayerChips(player, amount);
+  }
+
+  // Private: Update a player's chip stack and the pot based on a wager.
+  //
+  // player - The calling / betting player
+  // amount - The amount wagered
+  //
+  // Returns nothing
+  updatePlayerChips(player, amount) {
+    if (player.chips <= amount) {
+      player.isAllIn = true;
+      this.currentPot += player.chips;
+      player.chips = 0;
+    } else {
+      player.chips -= amount;
+      this.currentPot += amount;
+    }
   }
 
   // Private: Displays the flop cards and does a round of betting. If the
@@ -365,19 +442,23 @@ class TexasHoldem {
     let message = '';
     if (result.isSplitPot) {
       _.each(result.winners, winner => {
-        if (_.last(result.winners) !== winner)
+        if (_.last(result.winners) !== winner) {
           message += `${winner.name}, `;
-        else
+          winner.chips += Math.floor(this.currentPot / result.winners.length);
+        } else {
           message += `and ${winner.name} split the pot`;
+          winner.chips += Math.ceil(this.currentPot / result.winners.length);
+        }
       });
       message += ` with ${result.handName}: ${result.hand.toString()}.`;
     } else {
-      message = `${result.winners[0].name} wins`;
+      message = `${result.winners[0].name} wins $${this.currentPot}`;
       if (result.hand) {
         message += ` with ${result.handName}: ${result.hand.toString()}.`;
       } else {
         message += '.';
       }
+      result.winners[0].chips += this.currentPot;
     }
 
     this.channel.send(message);
@@ -386,20 +467,18 @@ class TexasHoldem {
 
     handEnded.onNext(true);
     handEnded.onCompleted();
+    this.checkForGameWinner();
   }
 
-  // Private: Adds players to the hand if they have enough chips and posts
-  // blinds.
+  // Private: If there is only one player with chips left, we've got a winner.
   //
   // Returns nothing
-  setupPlayers() {
-    for (let player of this.players) {
-      player.isInHand = true;
-      player.isBettor = false;
+  checkForGameWinner() {
+    let playersWithChips = _.filter(this.players, p => p.chips > 0);
+    if (playersWithChips.length === 1) {
+      let winner = playersWithChips[0];
+      this.quit(winner);
     }
-
-    this.smallBlind = (this.dealerButton + 1) % this.players.length;
-    this.bigBlind = (this.smallBlind + 1) % this.players.length;
   }
 
   // Private: Deals hole cards to each player in the game. To communicate this
@@ -408,7 +487,7 @@ class TexasHoldem {
   //
   // Returns nothing
   dealPlayerCards() {
-    this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, 'deal');
+    this.orderedPlayers = PlayerOrder.determine(this.getPlayersInHand(), this.dealerButton, 'deal');
 
     for (let player of this.orderedPlayers) {
       let card = this.deck.drawCard();
@@ -445,7 +524,7 @@ class TexasHoldem {
         title: `Dealing the ${round}:`,
         fallback: this.board.toString(),
         text: this.board.toString(),
-        color: "good",
+        color: 'good',
         image_url: url
       }];
 
@@ -455,6 +534,60 @@ class TexasHoldem {
       // just going to wait a second before continuing.
       return rx.Observable.timer(1000, this.scheduler);
     }).take(1);
+  }
+
+  // Private: If a player bet or raise, but didn't specify an amount or the
+  // amount was greater than their chip stack, this will correct it.
+  //
+  // player - The acting player
+  // action - The action that they took
+  //
+  // Returns nothing
+  validatePlayerAction(player, action) {
+    if (action.name === 'bet' || action.name === 'raise') {
+      // If another player has bet, the default raise is 2x. Otherwise the
+      // minimum bet is 1 small blind.
+      if (isNaN(action.amount)) {
+        action.amount = this.currentBet ?
+          this.currentBet * 2 :
+          this.smallBlind;
+      }
+
+      if (action.amount >= player.chips) {
+        action.amount = player.chips;
+      }
+    }
+  }
+
+  // Private: Posts a message to the channel describing a player's action.
+  //
+  // player - The acting player
+  // action - The action that they took
+  //
+  // Returns nothing
+  postActionToChannel(player, action) {
+    let message = `${player.name} ${action.name}s`;
+    if (action.name === 'bet')
+      message += ` $${action.amount}.`;
+    else if (action.name === 'raise')
+      message += ` to $${action.amount}.`;
+    else
+      message += '.';
+
+    this.channel.send(message);
+  }
+
+  // Private: Checks if all player actions adhered to some condition.
+  //
+  // actions - An array of strings describing the desired actions
+  // playerPredicate - A predicate to filter players on
+  //
+  // Returns true if every player that meets the predicate took one of the
+  // desired actions
+  everyPlayerTookAction(actions, playerPredicate) {
+    let playersRemaining = _.filter(this.players, playerPredicate);
+    return _.every(playersRemaining, p => p.lastAction !== null &&
+      actions.indexOf(p.lastAction.name) > -1);
   }
 }
 

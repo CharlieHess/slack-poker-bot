@@ -2,12 +2,13 @@ const textTable = require('text-table');
 
 class PlayerStatus {
   // Public: Displays a fixed-width text table showing all of the players in
-  // the hand, relevant position information (blinds, dealer button),
+  // the game, relevant position information (blinds, dealer button),
   // information about the player's bet, and an indicator of who's next to act.
   //
   // channel - The channel where the status message will be displayed
-  // players - The players in the hand
+  // players - The players in the game
   // actingPlayer - The player taking action
+  // currentPot - The total amount of chips in the pot
   // dealerButton - The index of the dealer button
   // bigBlind - The index of the big blind
   // smallBlind - The index of the small blind
@@ -16,7 +17,7 @@ class PlayerStatus {
   //
   // Returns nothing
   static displayHandStatus(channel, players, actingPlayer,
-    dealerButton, bigBlind, smallBlind, tableFormatter=`\`\`\``) {
+    currentPot, dealerButton, bigBlind, smallBlind, tableFormatter=`\`\`\``) {
     let table = [];
 
     for (let idx = 0; idx < players.length; idx++) {
@@ -25,25 +26,34 @@ class PlayerStatus {
       let player = players[idx];
       let turnIndicator = player === actingPlayer ? '→ ' : '  ';
       row.push(`${turnIndicator}${player.name}`);
+      row.push(`$${player.chips}`);
 
       let handIndicator = player.isInHand ? '🂠' : ' ';
       row.push(handIndicator);
 
-      let dealerIndicator = idx === dealerButton ? 'Ⓓ' : ' ';
-      row.push(dealerIndicator);
-
-      let bigBlindText = idx === bigBlind ? 'Ⓑ' : null;
+      let dealerText = idx === dealerButton ? 'Ⓓ' : null;
       let smallBlindText = idx === smallBlind ? 'Ⓢ' : null;
-      let blindIndicator = bigBlindText || smallBlindText || ' ';
-      row.push(blindIndicator);
+      let bigBlindText = idx === bigBlind ? 'Ⓑ' : null;
+      let positionIndicator = bigBlindText || smallBlindText || dealerText || ' ';
+      row.push(positionIndicator);
 
-      row.push(player.lastAction || '');
+      if (player.lastAction) {
+        let actionIndicator = player.lastAction.name;
+        if (actionIndicator === 'bet' || actionIndicator === 'raise') {
+          actionIndicator += ` $${player.lastAction.amount}`;
+        }
+        row.push(actionIndicator);
+      } else {
+        row.push('');
+      }
 
       table.push(row);
     }
 
     let fixedWidthTable = `${tableFormatter}${textTable(table)}${tableFormatter}`;
-    channel.send(fixedWidthTable);
+    let handStatus = `${fixedWidthTable}\nPot: $${currentPot}`;
+
+    channel.send(handStatus);
   }
 }
 

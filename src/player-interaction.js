@@ -15,14 +15,14 @@ class PlayerInteraction {
   // `onCompleted` when time expires or the max number of players join.
   static pollPotentialPlayers(messages, channel, scheduler=rx.Scheduler.timeout, timeout=5, maxPlayers=6) {
     let intro = `Who wants to play?`;
-    let formatMessage = (t) => `Respond with 'yes' in this channel in the next ${t} seconds.`;
+    let formatMessage = t => `Respond with 'yes' in this channel in the next ${t} seconds.`;
     let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, intro,
       formatMessage, scheduler, timeout);
 
     // Look for messages containing the word 'yes' and map them to a unique
     // user ID, constrained to `maxPlayers` number of players.
-    let newPlayers = messages.where((e) => e.text && e.text.toLowerCase().match(/\byes\b/))
-      .map((e) => e.user)
+    let newPlayers = messages.where(e => e.text && e.text.toLowerCase().match(/\byes\b/))
+      .map(e => e.user)
       .distinct()
       .take(maxPlayers)
       .publish();
@@ -45,17 +45,18 @@ class PlayerInteraction {
   //
   // Returns an {Observable} indicating the action the player took. If time
   // expires, a 'timeout' action is returned.
-  static getActionForPlayer(messages, channel, player, previousActions, scheduler=rx.Scheduler.timeout, timeout=30) {
+  static getActionForPlayer(messages, channel, player, previousActions,
+    scheduler=rx.Scheduler.timeout, timeout=30) {
     let intro = `${player.name}, it's your turn to act.`;
     let availableActions = PlayerInteraction.getAvailableActions(player, previousActions);
-    let formatMessage = (t) => PlayerInteraction.buildActionMessage(availableActions, t);
+    let formatMessage = t => PlayerInteraction.buildActionMessage(availableActions, t);
     let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, intro,
       formatMessage, scheduler, timeout);
 
     // Look for text that conforms to a player action.
-    let playerAction = messages.where((e) => e.user === player.id)
-      .map((e) => PlayerInteraction.actionForMessage(e.text, availableActions))
-      .where((action) => action !== '')
+    let playerAction = messages.where(e => e.user === player.id)
+      .map(e => PlayerInteraction.actionFromMessage(e.text, availableActions))
+      .where(action => action !== null)
       .publish();
 
     playerAction.connect();
@@ -63,18 +64,19 @@ class PlayerInteraction {
 
     // If the user times out, they will be auto-folded unless they can check.
     let actionForTimeout = timeExpired.map(() =>
-      availableActions.indexOf('check') > -1 ? 'check' : 'fold');
+      availableActions.indexOf('check') > -1 ?
+        { name: 'check' } :
+        { name: 'fold' });
+
+    let botAction = player.isBot ?
+      player.getAction(availableActions, previousActions) :
+      rx.Observable.never();
 
     // NB: Take the first result from the player action, the timeout, and a bot
     // action (only applicable to bots).
-    return rx.Observable
-      .merge(playerAction, actionForTimeout,
-        player.isBot ? player.getAction(availableActions, previousActions) : rx.Observable.never())
+    return rx.Observable.merge(playerAction, actionForTimeout, botAction)
       .take(1)
-      .do((action) => {
-        disp.dispose();
-        channel.send(`${player.name} ${action}s.`);
-      });
+      .do(() => disp.dispose());
   }
 
   // Private: Posts a message to the channel with some timeout, that edits
@@ -127,15 +129,15 @@ class PlayerInteraction {
   // Returns an array of strings
   static getAvailableActions(player, previousActions) {
     let actions = _.values(previousActions);
-    let playerBet = actions.indexOf('bet') > -1;
-    let playerRaised = actions.indexOf('raise') > -1;
+    let betActions = _.filter(actions, a => a.name === 'bet' || a.name === 'raise');
+    let hasBet = betActions.length > 0;
 
     let availableActions = [];
 
     if (player.hasOption) {
       availableActions.push('check');
       availableActions.push('raise');
-    } else if (playerBet || playerRaised) {
+    } else if (hasBet) {
       availableActions.push('call');
       availableActions.push('raise');
     } else {
@@ -143,38 +145,65 @@ class PlayerInteraction {
       availableActions.push('bet');
     }
 
+    // Prevent players from raising when they don't have enough chips.
+    let raiseIndex = availableActions.indexOf('raise');
+    if (raiseIndex > -1 &&
+      _.max(betActions, a => a.amount).amount >= player.chips) {
+      availableActions.splice(raiseIndex, 1);
+    }
+
     availableActions.push('fold');
     return availableActions;
   }
 
-  // Private: Maps abbreviated text for a player action to its canonical name.
+  // Private: Parse player input into a valid action.
   //
-  // text - The text of the player message
+  // text - The text that the player entered
   // availableActions - An array of the actions available to this player
   //
-  // Returns the canonical action
-  static actionForMessage(text, availableActions) {
-    if (!text) return '';
+  // Returns an object representing the action, with keys for the name and
+  // bet amount, or null if the input was invalid.
+  static actionFromMessage(text, availableActions) {
+    if (!text) return null;
 
-    switch (text.toLowerCase()) {
+    let input = text.trim().toLowerCase().split(/\s+/);
+    if (!input[0]) return null;
+
+    let name = '';
+    let amount = 0;
+
+    switch (input[0]) {
     case 'c':
-      return availableActions[0];
+      name = availableActions[0];
+      break;
     case 'call':
-      return 'call';
+      name = 'call';
+      break;
     case 'check':
-      return 'check';
+      name = 'check';
+      break;
     case 'f':
     case 'fold':
-      return 'fold';
+      name = 'fold';
+      break;
     case 'b':
     case 'bet':
-      return 'bet';
+      name = 'bet';
+      amount = input[1] ? parseInt(input[1]) : NaN;
+      break;
     case 'r':
     case 'raise':
-      return 'raise';
+      name = 'raise';
+      amount = input[1] ? parseInt(input[1]) : NaN;
+      break;
     default:
-      return '';
+      return null;
     }
+
+    // NB: Unavailable actions are always invalid.
+    return availableActions.indexOf(name) > -1 ?
+      { name: name, amount: amount } :
+      null;
   }
 }
 
