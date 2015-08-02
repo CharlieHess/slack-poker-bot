@@ -328,9 +328,14 @@ class TexasHoldem {
   //
   // Returns nothing
   updatePlayerChips(player, amount) {
-    // TODO: Handle player running out of chips / split pots.
-    player.chips -= amount;
-    this.currentPot += amount;
+    if (player.chips <= amount) {
+      player.isAllIn = true;
+      this.currentPot += player.chips;
+      player.chips = 0;
+    } else {
+      player.chips -= amount;
+      this.currentPot += amount;
+    }
   }
 
   everyPlayerTookAction(actions, playerPredicate) {

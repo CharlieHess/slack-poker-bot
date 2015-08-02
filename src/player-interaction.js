@@ -56,7 +56,8 @@ class PlayerInteraction {
 
     // Look for text that conforms to a player action.
     let playerAction = messages.where((e) => e.user === player.id)
-      .map((e) => PlayerInteraction.actionFromMessage(e.text, availableActions, defaultBet))
+      .map((e) => PlayerInteraction.actionFromMessage(e.text,
+        availableActions, defaultBet, player.chips))
       .where((action) => action !== null)
       .publish();
 
@@ -69,23 +70,30 @@ class PlayerInteraction {
         { name: 'check' } :
         { name: 'fold' });
 
+    let botAction = player.isBot ?
+      player.getAction(availableActions, previousActions) :
+      rx.Observable.never();
+
     // NB: Take the first result from the player action, the timeout, and a bot
     // action (only applicable to bots).
-    return rx.Observable
-      .merge(playerAction, actionForTimeout,
-        player.isBot ? player.getAction(availableActions, previousActions) : rx.Observable.never())
+    return rx.Observable.merge(playerAction, actionForTimeout, botAction)
       .take(1)
       .do((action) => {
         disp.dispose();
-        let message = `${player.name} ${action.name}s`;
-        if (action.name === 'bet')
-          message += ` $${action.amount}.`;
-        else if (action.name === 'raise')
-          message += ` to $${action.amount}.`;
-        else
-          message += '.';
-        channel.send(message);
+        PlayerInteraction.afterPlayerAction(channel, player, action);
       });
+  }
+
+  static afterPlayerAction(channel, player, action) {
+    let message = `${player.name} ${action.name}s`;
+    if (action.name === 'bet')
+      message += ` $${action.amount}.`;
+    else if (action.name === 'raise')
+      message += ` to $${action.amount}.`;
+    else
+      message += '.';
+
+    channel.send(message);
   }
 
   // Private: Posts a message to the channel with some timeout, that edits
@@ -164,10 +172,11 @@ class PlayerInteraction {
   // availableActions - An array of the actions available to this player
   // defaultBet - The default bet amount, used if a number cannot be parsed
   //              from the input text
+  // playerChips - The amount of chips the player has remaining
   //
   // Returns an object representing the action, with keys for the name and
   // bet amount, or null if the input was invalid.
-  static actionFromMessage(text, availableActions, defaultBet) {
+  static actionFromMessage(text, availableActions, defaultBet, playerChips) {
     if (!text) return null;
 
     let input = text.trim().toLowerCase().split(/\s+/);
@@ -193,12 +202,12 @@ class PlayerInteraction {
     case 'b':
     case 'bet':
       name = 'bet';
-      amount = PlayerInteraction.betFromMessage(input[1], defaultBet);
+      amount = PlayerInteraction.betFromMessage(input[1], defaultBet, playerChips);
       break;
     case 'r':
     case 'raise':
       name = 'raise';
-      amount = PlayerInteraction.betFromMessage(input[1], defaultBet);
+      amount = PlayerInteraction.betFromMessage(input[1], defaultBet, playerChips);
       break;
     default:
       return null;
@@ -214,12 +223,17 @@ class PlayerInteraction {
   //
   // text - The player input
   // defaultBet - The default bet to use if the parse fails
+  // playerChips - The amount of chips the player has remaining
   //
   // Returns a number representing the bet amount
-  static betFromMessage(text, defaultBet) {
+  static betFromMessage(text, defaultBet, playerChips) {
     if (!text) return defaultBet;
+
     let bet = parseInt(text);
-    return isNaN(bet) ? defaultBet : bet;
+    bet = isNaN(bet) ? defaultBet : bet;
+    bet = (playerChips && playerChips < bet) ? playerChips : bet;
+
+    return bet;
   }
 }
 

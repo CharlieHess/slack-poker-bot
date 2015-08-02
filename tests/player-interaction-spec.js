@@ -177,5 +177,28 @@ describe('PlayerInteraction', function() {
       action = PlayerInteraction.actionFromMessage('raising children is hard', availableActions);
       assert(action === null);
     });
+
+    it('should not let players bet more chips than they have', function() {
+      var availableActions = ['bet', 'raise', 'fold'];
+      var action = PlayerInteraction.actionFromMessage('bet 25', availableActions, 5, 10);
+      assert(action.name === 'bet');
+      assert(action.amount === 10);
+
+      action = PlayerInteraction.actionFromMessage('bet 25', availableActions, 5, 2);
+      assert(action.name === 'bet');
+      assert(action.amount === 2);
+
+      action = PlayerInteraction.actionFromMessage('bet infinity', availableActions, 5, 2);
+      assert(action.name === 'bet');
+      assert(action.amount === 2);
+
+      action = PlayerInteraction.actionFromMessage('raise 100', availableActions, 1, 99);
+      assert(action.name === 'raise');
+      assert(action.amount === 99);
+
+      action = PlayerInteraction.actionFromMessage('raise ABC', availableActions, 2, 10);
+      assert(action.name === 'raise');
+      assert(action.amount === 2);
+    });
   });
 });

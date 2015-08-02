@@ -61,8 +61,10 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 3, text: "Fold"});
     scheduler.advanceBy(5000);
 
-    messages.onNext({user: 4, text: "Raise 198"});
+    messages.onNext({user: 4, text: "Raise 200"});
     scheduler.advanceBy(5000);
+    assert(game.currentBet === 198);
+
     messages.onNext({user: 1, text: "Call"});
     scheduler.advanceBy(5000);
 
