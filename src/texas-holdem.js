@@ -147,13 +147,8 @@ class TexasHoldem {
     // can occur after any player action.
     let queryPlayers = rx.Observable.fromArray(this.orderedPlayers)
       .where((player) => player.isInHand && !player.isAllIn)
-      .concatMap((player) => this.deferredActionForPlayer(player, previousActions))
+      .concatMap((player) => this.deferredActionForPlayer(player, previousActions, roundEnded))
       .repeat()
-      .reduce((acc, x) => {
-        this.onPlayerAction(x.player, x.action, previousActions, roundEnded);
-        acc.push(x);
-        return acc;
-      }, [])
       .takeUntil(roundEnded)
       .publish();
 
@@ -210,10 +205,11 @@ class TexasHoldem {
   //
   // player - The player being polled
   // previousActions - A map of players to their most recent action
+  // roundEnded - A {Subject} used to end the betting round
   // timeToPause - (Optional) The time to wait before polling, in ms
   //
   // Returns an {Observable} containing the player's action
-  deferredActionForPlayer(player, previousActions, timeToPause=1000) {
+  deferredActionForPlayer(player, previousActions, roundEnded, timeToPause=1000) {
     return rx.Observable.defer(() => {
 
       // Display player position and who's next to act before polling.
@@ -228,16 +224,7 @@ class TexasHoldem {
 
         return PlayerInteraction.getActionForPlayer(this.messages, this.channel,
           player, previousActions, this.scheduler)
-          .map(action => {
-            this.validatePlayerAction(player, action);
-            this.postActionToChannel(player, action);
-
-            // NB: Save the action in various structures and return it with a
-            // reference to the acting player.
-            player.lastAction = action;
-            previousActions[player.id] = action;
-            return { player: player, action: action };
-          });
+          .do(action => this.onPlayerAction(player, action, previousActions, roundEnded));
         });
     });
   }
@@ -253,6 +240,14 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerAction(player, action, previousActions, roundEnded) {
+    this.validatePlayerAction(player, action);
+    this.postActionToChannel(player, action);
+
+    // NB: Save the action in various structures and return it with a
+    // reference to the acting player.
+    player.lastAction = action;
+    previousActions[player.id] = action;
+
     switch (action.name) {
     case 'fold':
       this.onPlayerFolded(player, roundEnded);
@@ -267,6 +262,36 @@ class TexasHoldem {
     case 'raise':
       this.onPlayerBet(player, action.amount);
       break;
+    }
+  }
+
+  // Private: If a player bet or raise, but didn't specify an amount or the
+  // amount was greater than their chip stack, this will correct it.
+  //
+  // player - The acting player
+  // action - The action that they took
+  //
+  // Returns nothing
+  validatePlayerAction(player, action) {
+    if (action.name === 'bet' || action.name === 'raise') {
+      // If another player has bet, the default raise is 2x. Otherwise the
+      // minimum bet is 1 small blind.
+      if (isNaN(action.amount)) {
+        action.amount = this.currentBet ?
+          this.currentBet * 2 :
+          this.smallBlind;
+      }
+
+      if (player.lastAction && player.lastAction.amount > 0) {
+        action.amount += player.lastAction.amount;
+      }
+
+      let totalChips = player.chips + (player.lastAction ? player.lastAction.amount : 0);
+      if (action.amount > totalChips) {
+        action.amount = totalChips;
+      }
+    } else if (action.name === 'call') {
+      action.amount = this.currentBet;
     }
   }
 
@@ -534,29 +559,6 @@ class TexasHoldem {
       // just going to wait a second before continuing.
       return rx.Observable.timer(1000, this.scheduler);
     }).take(1);
-  }
-
-  // Private: If a player bet or raise, but didn't specify an amount or the
-  // amount was greater than their chip stack, this will correct it.
-  //
-  // player - The acting player
-  // action - The action that they took
-  //
-  // Returns nothing
-  validatePlayerAction(player, action) {
-    if (action.name === 'bet' || action.name === 'raise') {
-      // If another player has bet, the default raise is 2x. Otherwise the
-      // minimum bet is 1 small blind.
-      if (isNaN(action.amount)) {
-        action.amount = this.currentBet ?
-          this.currentBet * 2 :
-          this.smallBlind;
-      }
-
-      if (action.amount >= player.chips) {
-        action.amount = player.chips;
-      }
-    }
   }
 
   // Private: Posts a message to the channel describing a player's action.
