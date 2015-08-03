@@ -46,6 +46,27 @@ describe('TexasHoldem', function() {
     game.tableFormatter = "\n";
   });
 
+  it("should divide pots based on a player's stake", function() {
+    game.start(0);
+    players[4].chips = 50;
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "Raise 50"});
+    scheduler.advanceBy(5000);
+    assert(players[4].isAllIn);
+
+    messages.onNext({user: 1, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Call"});
+    scheduler.advanceBy(5000);
+    assert(players[1].chips === 150);
+
+    messages.onNext({user: 3, text: "Fold"});
+    scheduler.advanceBy(5000);
+  });
+
   it('should end the game when all players have been eliminated', function() {
     game.start(0);
     scheduler.advanceBy(5000);
@@ -125,7 +146,7 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 4, text: "Raise 200"});
     scheduler.advanceBy(5000);
 
-    assert(game.currentBet === 198);
+    assert(game.currentBet === 200);
     assert(players[3].chips === 0);
     assert(players[3].isAllIn);
 
@@ -300,6 +321,7 @@ describe('TexasHoldem', function() {
     scheduler.advanceBy(5000);
 
     // Stu has the option, and raises.
+    assert(game.currentPot === 10);
     assert(game.actingPlayer.name === 'Stu Ungar');
     messages.onNext({user: 3, text: "Raise"});
     scheduler.advanceBy(5000);
