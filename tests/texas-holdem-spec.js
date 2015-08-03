@@ -61,7 +61,8 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 3, text: "Call"});
     scheduler.advanceBy(5000);
 
-    assert(!game.isRunning);
+    // If the game is still running, the last hand was a tie.
+    assert(!game.isRunning || game.lastHandResult.isSplitPot);
   });
 
   it('should handle default bets and raises', function() {
@@ -135,9 +136,10 @@ describe('TexasHoldem', function() {
     var winner = game.lastHandResult.winners[0];
     assert(winner.id === 1 || winner.id === 4);
 
-    // Check that the losing player was eliminated.
+    // Check that the losing player was eliminated, or that the pot was split.
     assert(game.board.length === 0);
-    assert(game.getPlayersInHand().length === 4);
+    assert(game.getPlayersInHand().length === 4 ||
+      game.lastHandResult.isSplitPot);
     game.quit();
   });
 

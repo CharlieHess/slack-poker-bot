@@ -24,6 +24,7 @@ This bot can do all of the following:
 It still lacks support for:
 - [ ] Split pots
 - [ ] Deployability
+- [ ] Custom configuration
 
 ### AI Players
 Although this client was built for managing human players in a Slack channel, it has some support for AI players. To add a bot player:

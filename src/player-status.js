@@ -39,7 +39,7 @@ class PlayerStatus {
 
       if (player.lastAction) {
         let actionIndicator = player.lastAction.name;
-        if (actionIndicator === 'bet' || actionIndicator === 'raise') {
+        if (player.lastAction.amount > 0) {
           actionIndicator += ` $${player.lastAction.amount}`;
         }
         row.push(actionIndicator);
