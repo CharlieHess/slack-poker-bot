@@ -38,7 +38,7 @@ module.exports = class PlayerOrder {
   //
   // Returns true if this player is the last to act, false otherwise
   static isLastToAct(actingPlayer, players) {
-    let playersRemaining = _.filter(players, p => p.isInHand);
+    let playersRemaining = _.filter(players, p => p.isInHand && !p.isAllIn);
     let currentIndex = playersRemaining.indexOf(actingPlayer);
 
     let bettor = _.find(playersRemaining, p => p.isBettor);

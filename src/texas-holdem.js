@@ -129,9 +129,11 @@ class TexasHoldem {
   //
   // Returns an {Observable} signaling the completion of the round
   doBettingRound(round) {
-    // NB: If every player is already all-in, end this round early.
+    // NB: If there aren't at least two players with chips to bet, move along
+    // to a showdown.
     let playersRemaining = this.getPlayersInHand();
-    if (_.every(playersRemaining, p => p.isAllIn)) {
+    let playersWhoCanBet = _.filter(playersRemaining, p => !p.isAllIn);
+    if (playersWhoCanBet.length < 2) {
       let result = { isHandComplete: false };
       return rx.Observable.return(result);
     }
@@ -354,7 +356,8 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerChecked(player, roundEnded) {
-    let everyoneChecked = this.everyPlayerTookAction(['check', 'call'], p => p.isInHand);
+    let everyoneChecked = this.everyPlayerTookAction(['check', 'call'],
+      p => p.isInHand && !p.isAllIn);
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     if (everyoneChecked && everyoneHadATurn) {
@@ -371,7 +374,8 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerCalled(player, roundEnded) {
-    let everyoneCalled = this.everyPlayerTookAction(['call'], p => p.isInHand && !p.isBettor);
+    let everyoneCalled = this.everyPlayerTookAction(['call'],
+      p => p.isInHand && !p.isAllIn && !p.isBettor);
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     if (everyoneCalled && everyoneHadATurn) {
