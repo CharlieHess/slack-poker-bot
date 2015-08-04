@@ -312,7 +312,6 @@ class TexasHoldem {
 
     if (action.amount >= availableChips) {
       action.amount = availableChips;
-      player.isAllIn = true;
     }
 
     let wagerIncrease = action.amount - previousWager;
@@ -382,6 +381,10 @@ class TexasHoldem {
       let result = { isHandComplete: false };
       roundEnded.onNext(result);
     }
+
+    if (player.chips === 0) {
+      player.isAllIn = true;
+    }
   }
 
   // Private: When a player bets, assign them as the current bettor. The
@@ -398,6 +401,9 @@ class TexasHoldem {
     }
 
     player.isBettor = true;
+    if (player.chips === 0) {
+      player.isAllIn = true;
+    }
   }
 
   // Private: Displays the flop cards and does a round of betting. If the
