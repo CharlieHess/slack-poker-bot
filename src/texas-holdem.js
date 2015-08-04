@@ -186,17 +186,17 @@ class TexasHoldem {
     let sbPlayer = this.players[this.smallBlindIdx];
     let bbPlayer = this.players[this.bigBlindIdx];
 
+    let sbAction = { name: 'bet', amount: this.smallBlind };
+    let bbAction = { name: 'bet', amount: this.bigBlind };
+
+    // Treat posting blinds as a legitimate bet action.
+    this.onPlayerAction(sbPlayer, sbAction, previousActions, null, 'small blind');
+    this.onPlayerAction(bbPlayer, bbAction, previousActions, null, 'big blind');
+
     // NB: So, in the preflop round we want to treat the big blind as the
     // bettor. Because the bet was implict, that player also has an "option,"
     // i.e., they will be the last to act.
-    this.onPlayerBet(sbPlayer, this.smallBlind);
-    this.onPlayerBet(bbPlayer, this.bigBlind);
     bbPlayer.hasOption = true;
-
-    previousActions[sbPlayer.id] =
-      sbPlayer.lastAction = { name: 'bet', amount: this.smallBlind };
-    previousActions[bbPlayer.id] =
-      bbPlayer.lastAction = { name: 'bet', amount: this.bigBlind };
   }
 
   // Private: Displays player position and who's next to act, pauses briefly,
@@ -229,70 +229,93 @@ class TexasHoldem {
     });
   }
 
-  // Private: Occurs when a player action is received. Check the remaining
-  // players and the previous actions, and possibly end the round of betting or
-  // the hand entirely.
+  // Private: Occurs immediately after a player action is received. First,
+  // validate the action and possibly modify the amount wagered. Then see if
+  // the action caused the betting round to end.
   //
   // player - The player who acted
   // action - The action the player took
   // previousActions - A map of players to their most recent action
   // roundEnded - A {Subject} used to end the betting round
+  // postingBlind - (Optional) String describing the blind, or empty
   //
   // Returns nothing
-  onPlayerAction(player, action, previousActions, roundEnded) {
-    this.validatePlayerAction(player, action);
-    this.postActionToChannel(player, action);
+  onPlayerAction(player, action, previousActions, roundEnded, postingBlind='') {
+    this.validateBet(player, action);
+    this.postActionToChannel(player, action, postingBlind);
 
-    // NB: Save the action in various structures and return it with a
-    // reference to the acting player.
+    // Now that the action has been validated, save it for future reference.
     player.lastAction = action;
     previousActions[player.id] = action;
 
+    // All of these methods assume that the action is valid.
     switch (action.name) {
     case 'fold':
       this.onPlayerFolded(player, roundEnded);
       break;
     case 'check':
-      this.onPlayerChecked(player, previousActions, roundEnded);
+      this.onPlayerChecked(player, roundEnded);
       break;
     case 'call':
       this.onPlayerCalled(player, roundEnded);
       break;
     case 'bet':
     case 'raise':
-      this.onPlayerBet(player, action.amount);
+      this.onPlayerBet(player);
       break;
     }
   }
 
-  // Private: If a player bet or raise, but didn't specify an amount or the
-  // amount was greater than their chip stack, this will correct it.
+  // Private: If a player wagered any chips, we need to check that they have
+  // the available chips and adjust the bet if necessary. This also handles the
+  // case where no bet was specified, in which case we use a default bet.
   //
   // player - The acting player
-  // action - The action that they took
+  // action - The action the player took
   //
   // Returns nothing
-  validatePlayerAction(player, action) {
-    if (action.name === 'bet' || action.name === 'raise') {
-      // If another player has bet, the default raise is 2x. Otherwise the
-      // minimum bet is 1 small blind.
-      if (isNaN(action.amount)) {
-        action.amount = this.currentBet ?
-          this.currentBet * 2 :
-          this.smallBlind;
-      }
+  validateBet(player, action) {
+    // Freebies.
+    if (action.name === 'check' || action.name === 'fold') {
+      return;
+    }
 
-      if (player.lastAction && player.lastAction.amount > 0) {
-        action.amount += player.lastAction.amount;
-      }
-
-      let totalChips = player.chips + (player.lastAction ? player.lastAction.amount : 0);
-      if (action.amount > totalChips) {
-        action.amount = totalChips;
-      }
-    } else if (action.name === 'call') {
+    // Calls don't specify an amount, but they are a wager nonetheless.
+    if (action.name === 'call') {
       action.amount = this.currentBet;
     }
+
+    // No amount was specified in a bet or raise.
+    if (isNaN(action.amount)) {
+      // If another player has bet, the default raise is 2x. Otherwise use the
+      // minimum bet (1 small blind).
+      action.amount = this.currentBet ?
+        this.currentBet * 2 :
+        this.smallBlind;
+    }
+
+    this.currentBet = action.amount;
+    this.updateChipsAndPot(player, action);
+  }
+
+  // Private: Update a player's chip stack and the pot based on a wager.
+  //
+  // player - The calling / betting player
+  // action - The action the player took
+  //
+  // Returns nothing
+  updateChipsAndPot(player, action) {
+    let previousWager = player.lastAction ? player.lastAction.amount : 0;
+    let availableChips = player.chips + previousWager;
+
+    if (action.amount >= availableChips) {
+      action.amount = availableChips;
+      player.isAllIn = true;
+    }
+
+    let wagerIncrease = action.amount - previousWager;
+    player.chips -= wagerIncrease;
+    this.currentPot += wagerIncrease;
   }
 
   // Private: If everyone folded out, declare a winner. Otherwise see if this
@@ -330,7 +353,7 @@ class TexasHoldem {
   // roundEnded - A {Subject} used to end the betting round
   //
   // Returns nothing
-  onPlayerChecked(player, previousActions, roundEnded) {
+  onPlayerChecked(player, roundEnded) {
     let everyoneChecked = this.everyPlayerTookAction(['check', 'call'], p => p.isInHand);
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
@@ -348,8 +371,6 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerCalled(player, roundEnded) {
-    this.updatePlayerChips(player, this.currentBet);
-
     let everyoneCalled = this.everyPlayerTookAction(['call'], p => p.isInHand && !p.isBettor);
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
@@ -363,10 +384,9 @@ class TexasHoldem {
   // betting round will cycle through all players up to the bettor.
   //
   // player - The player who bet or raised
-  // amount - The amount that was bet
   //
   // Returns nothing
-  onPlayerBet(player, amount) {
+  onPlayerBet(player) {
     let currentBettor = _.find(this.players, p => p.isBettor);
     if (currentBettor) {
       currentBettor.isBettor = false;
@@ -374,25 +394,6 @@ class TexasHoldem {
     }
 
     player.isBettor = true;
-    this.currentBet = amount;
-    this.updatePlayerChips(player, amount);
-  }
-
-  // Private: Update a player's chip stack and the pot based on a wager.
-  //
-  // player - The calling / betting player
-  // amount - The amount wagered
-  //
-  // Returns nothing
-  updatePlayerChips(player, amount) {
-    if (player.chips <= amount) {
-      player.isAllIn = true;
-      this.currentPot += player.chips;
-      player.chips = 0;
-    } else {
-      player.chips -= amount;
-      this.currentPot += amount;
-    }
   }
 
   // Private: Displays the flop cards and does a round of betting. If the
@@ -565,10 +566,14 @@ class TexasHoldem {
   //
   // player - The acting player
   // action - The action that they took
+  // postingBlind - (Optional) String describing the blind, or empty
   //
   // Returns nothing
-  postActionToChannel(player, action) {
-    let message = `${player.name} ${action.name}s`;
+  postActionToChannel(player, action, postingBlind='') {
+    let message = postingBlind === '' ?
+      `${player.name} ${action.name}s` :
+      `${player.name} posts ${postingBlind} of`;
+
     if (action.name === 'bet')
       message += ` $${action.amount}.`;
     else if (action.name === 'raise')
