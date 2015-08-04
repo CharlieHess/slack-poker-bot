@@ -48,6 +48,8 @@ describe('TexasHoldem', function() {
 
   it("should divide pots based on a player's stake", function() {
     game.start(0);
+
+    // Give Chip a small stack for this test.
     players[4].chips = 50;
     scheduler.advanceBy(5000);
 
@@ -63,8 +65,62 @@ describe('TexasHoldem', function() {
     scheduler.advanceBy(5000);
     assert(players[1].chips === 150);
 
-    messages.onNext({user: 3, text: "Fold"});
+    messages.onNext({user: 3, text: "Call"});
     scheduler.advanceBy(5000);
+
+    assert(game.actingPlayer.name === 'Doyle Brunson');
+    messages.onNext({user: 2, text: "Bet 10"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Call"});
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 2, text: "Bet 20"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Call"});
+    scheduler.advanceBy(5000);
+
+    // Override the game board and player hands to guarantee Chip wins.
+    game.board = [
+      new Card('A', 'Hearts'),
+      new Card('K', 'Hearts'),
+      new Card('Q', 'Hearts'),
+      new Card('J', 'Hearts'),
+      new Card('2', 'Hearts'),
+    ];
+
+    game.playerHands[5] = [
+      new Card('T', 'Hearts'),
+      new Card('9', 'Hearts')
+    ];
+
+    game.playerHands[2] = [
+      new Card('2', 'Clubs'),
+      new Card('3', 'Clubs')
+    ];
+
+    game.playerHands[3] = [
+      new Card('4', 'Clubs'),
+      new Card('5', 'Clubs')
+    ];
+
+    messages.onNext({user: 2, text: "Check"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Bet 20"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Raise 80"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Call"});
+    scheduler.advanceBy(5000);
+
+    // Chip triples up his initial stack of 50.
+    var winner = game.lastHandResult.winners[0];
+    assert(winner.id === 5);
+    assert(winner.chips === 150);
+
+    // Doyle and Stu split the remainder (Stu would be 150, but posted SB).
+    assert(players[1].chips === 150);
+    assert(players[2].chips === 149);
+    game.quit();
   });
 
   it('should end the game when all players have been eliminated', function() {
