@@ -113,17 +113,17 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 4, text: "call"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 16);
-    assert(game.currentPot === 47);
+    assert(game.currentPot === 43);
 
     messages.onNext({user: 5, text: "call"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 0);
-    assert(game.currentPot === 63);
+    assert(game.currentPot === 51);
 
     messages.onNext({user: 4, text: "bet"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 1);
-    assert(game.currentPot === 64);
+    assert(game.currentPot === 52);
 
     game.quit();
   });
