@@ -296,8 +296,7 @@ class TexasHoldem {
         this.smallBlind;
     }
 
-    this.currentBet = action.amount;
-    this.updateChipsAndPot(player, action);
+    this.currentBet = this.updateChipsAndPot(player, action);
   }
 
   // Private: Update a player's chip stack and the pot based on a wager.
@@ -305,7 +304,8 @@ class TexasHoldem {
   // player - The calling / betting player
   // action - The action the player took
   //
-  // Returns nothing
+  // Returns the amount of the wager after taking the player's available chips
+  // into account.
   updateChipsAndPot(player, action) {
     let previousWager = player.lastAction ? player.lastAction.amount : 0;
     let availableChips = player.chips + previousWager;
@@ -317,6 +317,8 @@ class TexasHoldem {
     let wagerIncrease = action.amount - previousWager;
     player.chips -= wagerIncrease;
     this.currentPot += wagerIncrease;
+
+    return action.amount;
   }
 
   // Private: If everyone folded out, declare a winner. Otherwise see if this
