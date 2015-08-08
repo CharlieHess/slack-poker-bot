@@ -1,12 +1,13 @@
 const rx = require('rx');
 const _ = require('underscore-plus');
 
+const Pot = require('./pot');
 const Deck = require('./deck');
-const ImageHelpers = require('./image-helpers');
-const PlayerInteraction = require('./player-interaction');
 const PlayerOrder = require('./player-order');
 const PlayerStatus = require('./player-status');
+const ImageHelpers = require('./image-helpers');
 const HandEvaluator = require('./hand-evaluator');
+const PlayerInteraction = require('./player-interaction');
 
 class TexasHoldem {
   // Public: Creates a new game instance.
@@ -93,7 +94,7 @@ class TexasHoldem {
     this.board = [];
     this.playerHands = {};
 
-    this.setupPlayers();
+    this.initializeHand();
     this.deck.shuffle();
     this.dealPlayerCards();
 
@@ -111,14 +112,16 @@ class TexasHoldem {
   // small blind and big blind indices.
   //
   // Returns nothing
-  setupPlayers() {
+  initializeHand() {
     for (let player of this.players) {
       player.isInHand = player.chips > 0;
       player.isAllIn = false;
       player.isBettor = false;
     }
-
-    this.currentPot = 0;
+    
+    let participants = _.filter(this.players, p => p.isInHand);
+    this.pot = new Pot(participants);
+    
     this.smallBlindIdx = PlayerOrder.getNextPlayerIndex(this.dealerButton, this.players);
     this.bigBlindIdx = PlayerOrder.getNextPlayerIndex(this.smallBlindIdx, this.players);
   }
@@ -217,7 +220,7 @@ class TexasHoldem {
       // Display player position and who's next to act before polling.
       PlayerStatus.displayHandStatus(this.channel,
         this.players, player,
-        this.currentPot, this.dealerButton,
+        this.pot.getTotalChips(), this.dealerButton,
         this.bigBlindIdx, this.smallBlindIdx,
         this.tableFormatter);
 
@@ -316,7 +319,7 @@ class TexasHoldem {
 
     let wagerIncrease = action.amount - previousWager;
     player.chips -= wagerIncrease;
-    this.currentPot += wagerIncrease;
+    this.pot.add(wagerIncrease);
 
     return action.amount;
   }
@@ -477,29 +480,9 @@ class TexasHoldem {
   //
   // Returns nothing
   endHand(handEnded, result) {
-    let message = '';
-    if (result.isSplitPot) {
-      _.each(result.winners, winner => {
-        if (_.last(result.winners) !== winner) {
-          message += `${winner.name}, `;
-          winner.chips += Math.floor(this.currentPot / result.winners.length);
-        } else {
-          message += `and ${winner.name} split the pot`;
-          winner.chips += Math.ceil(this.currentPot / result.winners.length);
-        }
-      });
-      message += ` with ${result.handName}: ${result.hand.toString()}.`;
-    } else {
-      message = `${result.winners[0].name} wins $${this.currentPot}`;
-      if (result.hand) {
-        message += ` with ${result.handName}: ${result.hand.toString()}.`;
-      } else {
-        message += '.';
-      }
-      result.winners[0].chips += this.currentPot;
-    }
-
-    this.channel.send(message);
+    let resultMessage = this.pot.handleResult(result);
+    this.channel.send(resultMessage);
+    
     this.dealerButton = (this.dealerButton + 1) % this.players.length;
     this.lastHandResult = result;
 

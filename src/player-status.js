@@ -8,7 +8,7 @@ class PlayerStatus {
   // channel - The channel where the status message will be displayed
   // players - The players in the game
   // actingPlayer - The player taking action
-  // currentPot - The total amount of chips in the pot
+  // totalPot - The total amount of chips in the pot
   // dealerButton - The index of the dealer button
   // bigBlind - The index of the big blind
   // smallBlind - The index of the small blind
@@ -17,7 +17,7 @@ class PlayerStatus {
   //
   // Returns nothing
   static displayHandStatus(channel, players, actingPlayer,
-    currentPot, dealerButton, bigBlind, smallBlind, tableFormatter=`\`\`\``) {
+    totalPot, dealerButton, bigBlind, smallBlind, tableFormatter=`\`\`\``) {
     let table = [];
 
     for (let idx = 0; idx < players.length; idx++) {
@@ -51,7 +51,7 @@ class PlayerStatus {
     }
 
     let fixedWidthTable = `${tableFormatter}${textTable(table)}${tableFormatter}`;
-    let handStatus = `${fixedWidthTable}\nPot: $${currentPot}`;
+    let handStatus = `${fixedWidthTable}\nPot: $${totalPot}`;
 
     channel.send(handStatus);
   }

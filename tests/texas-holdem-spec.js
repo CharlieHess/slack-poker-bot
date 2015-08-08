@@ -68,6 +68,7 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 3, text: "Call"});
     scheduler.advanceBy(5000);
 
+    // Get a side pot going.
     assert(game.actingPlayer.name === 'Doyle Brunson');
     messages.onNext({user: 2, text: "Bet 10"});
     scheduler.advanceBy(5000);
@@ -149,17 +150,17 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 4, text: "raise"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 4);
-    assert(game.currentPot === 7);
+    assert(game.pot.getTotalChips() === 7);
 
     messages.onNext({user: 5, text: "raise"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 8);
-    assert(game.currentPot === 15);
+    assert(game.pot.getTotalChips() === 15);
 
     messages.onNext({user: 1, text: "raise"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 16);
-    assert(game.currentPot === 31);
+    assert(game.pot.getTotalChips() === 31);
 
     messages.onNext({user: 2, text: "fold"});
     scheduler.advanceBy(5000);
@@ -169,17 +170,17 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 4, text: "call"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 16);
-    assert(game.currentPot === 43);
+    assert(game.pot.getTotalChips() === 43);
 
     messages.onNext({user: 5, text: "call"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 0);
-    assert(game.currentPot === 51);
+    assert(game.pot.getTotalChips() === 51);
 
     messages.onNext({user: 4, text: "bet"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 1);
-    assert(game.currentPot === 52);
+    assert(game.pot.getTotalChips() === 52);
 
     game.quit();
   });
@@ -207,7 +208,7 @@ describe('TexasHoldem', function() {
     assert(players[3].isAllIn);
 
     messages.onNext({user: 1, text: "Call"});
-    assert(game.currentPot === 403);
+    assert(game.pot.getTotalChips() === 403);
     scheduler.advanceBy(5000);
 
     var winner = game.lastHandResult.winners[0];
@@ -377,7 +378,7 @@ describe('TexasHoldem', function() {
     scheduler.advanceBy(5000);
 
     // Stu has the option, and raises.
-    assert(game.currentPot === 10);
+    assert(game.pot.getTotalChips() === 10);
     assert(game.actingPlayer.name === 'Stu Ungar');
     messages.onNext({user: 3, text: "Raise"});
     scheduler.advanceBy(5000);
