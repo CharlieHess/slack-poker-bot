@@ -1,7 +1,7 @@
 ## Slack Poker Bot
 A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in any channel or private group with 2-10 players. PokerBot will deal hands, direct message players with their hole cards, query players (in order) for their action, determine the winning hand, and (eventually) handle the pot.
 
-![](https://s3.amazonaws.com/f.cl.ly/items/1h0S1x0e2e0t2A1W180u/Image%202015-06-30%20at%2011.07.16%20AM.png)
+![](https://s3.amazonaws.com/f.cl.ly/items/1T1a021M3w0W0Y2b0n3Z/Image%202015-08-08%20at%205.45.31%20PM.png)
 
 ### Getting Started
 1. Create a new [bot integration](https://my.slack.com/services/new/bot)
@@ -42,6 +42,9 @@ The tests produce legible output that matches what users in Slack would see. Thi
 ![](https://s3.amazonaws.com/f.cl.ly/items/2T2c472a3M390J2T2t3I/Image%202015-07-23%20at%202.26.12%20PM.png)
 
 ### Dependencies
+# [NodeJS Slack Client](https://github.com/slackhq/node-slack-client)
+`node-slack-client` abstracts the basics of a Slack bot, including authentication, getting messages from players, and posting messages or attachments to the channel.
+
 * [RxJS](https://github.com/Reactive-Extensions/RxJS)
 The majority of this client is written using `RxJS`. It simplifies many of the complex player polling interactions, that would otherwise be Death By Timers, into very legible code.
 
@@ -53,3 +56,5 @@ Each card is a separate image, and board images are created on the fly by pastin
 
 * [MochaJS](http://mochajs.org/)
 Most of the tricky client logic is backed up by tests, which were written using `MochaJS`.
+
+# [Vector Playing Cards](https://code.google.com/p/vector-playing-cards/)

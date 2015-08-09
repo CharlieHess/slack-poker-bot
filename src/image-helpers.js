@@ -20,7 +20,7 @@ class ImageHelpers {
   // Returns an {Observable} that will `onNext` with the URL of the combined
   // image, or `onError` if anything goes wrong
   static createBoardImage(cards, upload=imgur.uploadFile) {
-    let subj = new rx.Subject();
+    let subj = new rx.AsyncSubject();
     let imageFiles = cards.map((c) => `resources/${c}.jpeg`);
 
     if (!fs.existsSync('./output')) {
