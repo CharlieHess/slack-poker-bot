@@ -6,7 +6,6 @@ const Deck = require('./deck');
 const PlayerOrder = require('./player-order');
 const PlayerStatus = require('./player-status');
 const ImageHelpers = require('./image-helpers');
-const HandEvaluator = require('./hand-evaluator');
 const PlayerInteraction = require('./player-interaction');
 
 class TexasHoldem {
@@ -461,11 +460,7 @@ class TexasHoldem {
       this.doBettingRound('river').subscribe((result) => {
         // Still no winner? Time for a showdown.
         if (!result.isHandComplete) {
-          let playersRemaining = _.filter(this.players, p => p.isInHand);
-          result = HandEvaluator.evaluateHands(
-            playersRemaining,
-            this.playerHands,
-            this.board);
+          result = this.pot.doShowdown(this.playerHands, this.board);
         }
         this.endHand(handEnded, result);
       }));

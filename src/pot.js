@@ -1,9 +1,12 @@
 const _ = require('underscore-plus');
 
+const HandEvaluator = require('./hand-evaluator');
+
 class Pot {
   constructor(players) {
+    this.players = players;
     this.currentPot = { amount: 0, participants: players.map(p => p.id) };
-    this.pots = [ this.currentPot ];
+    this.pots = [this.currentPot];
   }
   
   add(bet) {
@@ -12,6 +15,11 @@ class Pot {
   
   getTotalChips() {
     return _.reduce(this.pots, (total, pot) => total + pot.amount, 0);
+  }
+  
+  doShowdown(playerHands, board) {
+    let playersRemaining = _.filter(this.players, p => p.isInHand);
+    return HandEvaluator.evaluateHands(playersRemaining, playerHands, board);
   }
   
   handleResult(result) {
