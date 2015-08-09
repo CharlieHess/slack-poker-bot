@@ -24,9 +24,9 @@ class TexasHoldem {
     this.scheduler = scheduler;
 
     this.deck = new Deck();
-    this.potManager = new PotManager(this.channel, players);
     this.smallBlind = 1;
     this.bigBlind = this.smallBlind * 2;
+    this.potManager = new PotManager(this.channel, players, this.smallBlind);
     this.gameEnded = new rx.Subject();
 
     // Cache the direct message channels for each player as we'll be using
@@ -124,7 +124,7 @@ class TexasHoldem {
     }
     
     let participants = _.filter(this.players, p => p.isInHand);
-    this.potManager.startPot(participants);
+    this.potManager.startHand(participants);
     
     this.smallBlindIdx = PlayerOrder.getNextPlayerIndex(this.dealerButton, this.players);
     this.bigBlindIdx = PlayerOrder.getNextPlayerIndex(this.smallBlindIdx, this.players);
@@ -179,7 +179,7 @@ class TexasHoldem {
       player.hasOption = false;
     }
 
-    this.currentBet = 0;
+    this.potManager.startBettingRound();
 
     if (round === 'preflop') {
       this.postBlinds(previousActions);
@@ -250,7 +250,7 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerAction(player, action, previousActions, roundEnded, postingBlind='') {
-    this.validateBet(player, action);
+    this.potManager.updatePotForAction(player, action);
     this.postActionToChannel(player, action, postingBlind);
 
     // Now that the action has been validated, save it for future reference.
@@ -275,59 +275,6 @@ class TexasHoldem {
     }
   }
 
-  // Private: If a player wagered any chips, we need to check that they have
-  // the available chips and adjust the bet if necessary. This also handles the
-  // case where no bet was specified, in which case we use a default bet.
-  //
-  // player - The acting player
-  // action - The action the player took
-  //
-  // Returns nothing
-  validateBet(player, action) {
-    // Freebies.
-    if (action.name === 'check' || action.name === 'fold') {
-      return;
-    }
-
-    // Calls don't specify an amount, but they are a wager nonetheless.
-    if (action.name === 'call') {
-      action.amount = this.currentBet;
-    }
-
-    // No amount was specified in a bet or raise.
-    if (isNaN(action.amount)) {
-      // If another player has bet, the default raise is 2x. Otherwise use the
-      // minimum bet (1 small blind).
-      action.amount = this.currentBet ?
-        this.currentBet * 2 :
-        this.smallBlind;
-    }
-
-    this.currentBet = this.updateChipsAndPot(player, action);
-  }
-
-  // Private: Update a player's chip stack and the pot based on a wager.
-  //
-  // player - The calling / betting player
-  // action - The action the player took
-  //
-  // Returns the amount of the wager after taking the player's available chips
-  // into account.
-  updateChipsAndPot(player, action) {
-    let previousWager = player.lastAction ? player.lastAction.amount : 0;
-    let availableChips = player.chips + previousWager;
-
-    if (action.amount >= availableChips) {
-      action.amount = availableChips;
-    }
-
-    let wagerIncrease = action.amount - previousWager;
-    player.chips -= wagerIncrease;
-    this.potManager.addToPot(wagerIncrease);
-
-    return action.amount;
-  }
-
   // Private: If everyone folded out, declare a winner. Otherwise see if this
   // was the last player to act and move to the next round.
   //
@@ -341,7 +288,6 @@ class TexasHoldem {
     let everyoneActed = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     player.isInHand = false;
-    this.potManager.removePlayerFromPot(player);
     let playersRemaining = this.getPlayersInHand();
 
     if (playersRemaining.length === 1) {

@@ -64,9 +64,11 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 2, text: "Call"});
     scheduler.advanceBy(5000);
     assert(players[1].chips === 150);
+    assert(game.potManager.pots[0].amount === 102);
 
     messages.onNext({user: 3, text: "Call"});
     scheduler.advanceBy(5000);
+    assert(game.potManager.pots[0].amount === 150);
 
     // Get a side pot going.
     assert(game.actingPlayer.name === 'Doyle Brunson');
@@ -74,11 +76,14 @@ describe('TexasHoldem', function() {
     scheduler.advanceBy(5000);
     messages.onNext({user: 3, text: "Call"});
     scheduler.advanceBy(5000);
+    assert(game.potManager.pots[0].amount === 150);
+    assert(game.potManager.pots[1].amount === 20);
 
     messages.onNext({user: 2, text: "Bet 20"});
     scheduler.advanceBy(5000);
     messages.onNext({user: 3, text: "Call"});
     scheduler.advanceBy(5000);
+    assert(game.potManager.pots[1].amount === 60);
 
     // Override the game board and player hands to guarantee Chip wins.
     game.board = [
@@ -151,17 +156,17 @@ describe('TexasHoldem', function() {
 
     messages.onNext({user: 4, text: "raise"});
     scheduler.advanceBy(5000);
-    assert(game.currentBet === 4);
+    assert(game.potManager.currentBet === 4);
     assert(game.potManager.getTotalChips() === 7);
 
     messages.onNext({user: 5, text: "raise"});
     scheduler.advanceBy(5000);
-    assert(game.currentBet === 8);
+    assert(game.potManager.currentBet === 8);
     assert(game.potManager.getTotalChips() === 15);
 
     messages.onNext({user: 1, text: "raise"});
     scheduler.advanceBy(5000);
-    assert(game.currentBet === 16);
+    assert(game.potManager.currentBet === 16);
     assert(game.potManager.getTotalChips() === 31);
 
     messages.onNext({user: 2, text: "fold"});
@@ -171,17 +176,17 @@ describe('TexasHoldem', function() {
 
     messages.onNext({user: 4, text: "call"});
     scheduler.advanceBy(5000);
-    assert(game.currentBet === 16);
+    assert(game.potManager.currentBet === 16);
     assert(game.potManager.getTotalChips() === 43);
 
     messages.onNext({user: 5, text: "call"});
     scheduler.advanceBy(5000);
-    assert(game.currentBet === 0);
+    assert(game.potManager.currentBet === 0);
     assert(game.potManager.getTotalChips() === 51);
 
     messages.onNext({user: 4, text: "bet"});
     scheduler.advanceBy(5000);
-    assert(game.currentBet === 1);
+    assert(game.potManager.currentBet === 1);
     assert(game.potManager.getTotalChips() === 52);
 
     game.quit();
@@ -205,7 +210,7 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 4, text: "Raise 200"});
     scheduler.advanceBy(5000);
 
-    assert(game.currentBet === 200);
+    assert(game.potManager.currentBet === 200);
     assert(players[3].chips === 0);
     assert(players[3].isAllIn);
 
