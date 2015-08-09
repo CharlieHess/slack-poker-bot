@@ -8,7 +8,7 @@ var Card = require('../src/card');
 var ImageHelpers = require('../src/image-helpers');
 
 // NB: This will need to be updated if the set of card images changes.
-var cardSize = {width: 125, height: 181};
+var cardSize = {width: 250, height: 363};
 
 // NB: We use this in place of imgur's `uploadFile` method, but we still need
 // to match their API, which returns a {Promise}.
