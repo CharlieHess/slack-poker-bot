@@ -32,19 +32,13 @@ class PotManager {
   doShowdown(playerHands, board) {
     for (let pot of this.pots) {
       pot.result = HandEvaluator.evaluateHands(pot.participants, playerHands, board);
+      this.handleOutcome(pot);
     }
-    this.endHand();
   }
   
-  endHand(result=null) {
-    if (result) {
-      this.currentPot.result = result;
-      this.handleOutcome(this.currentPot);
-    } else {
-      for (let pot of this.pots) {
-        this.handleOutcome(pot);
-      }
-    }
+  endHand(result) {
+    this.currentPot.result = result;
+    this.handleOutcome(this.currentPot);
   }
   
   handleOutcome(pot) {
