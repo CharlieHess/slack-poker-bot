@@ -114,7 +114,8 @@ describe('TexasHoldem', function() {
     scheduler.advanceBy(5000);
 
     // Chip triples up his initial stack of 50.
-    var winner = game.lastHandResult.winners[0];
+    var lastResult = game.potManager.outcomes.pop();
+    var winner = lastResult.winners[0];
     assert(winner.id === 5);
     assert(winner.chips === 150);
 
@@ -140,7 +141,8 @@ describe('TexasHoldem', function() {
     scheduler.advanceBy(5000);
 
     // If the game is still running, the last hand was a tie.
-    assert(!game.isRunning || game.lastHandResult.isSplitPot);
+    var lastResult = game.potManager.outcomes.pop();
+    assert(!game.isRunning || (lastResult && lastResult.isSplitPot));
   });
 
   it('should handle default bets and raises', function() {
@@ -150,17 +152,17 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 4, text: "raise"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 4);
-    assert(game.pot.getTotalChips() === 7);
+    assert(game.potManager.getTotalChips() === 7);
 
     messages.onNext({user: 5, text: "raise"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 8);
-    assert(game.pot.getTotalChips() === 15);
+    assert(game.potManager.getTotalChips() === 15);
 
     messages.onNext({user: 1, text: "raise"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 16);
-    assert(game.pot.getTotalChips() === 31);
+    assert(game.potManager.getTotalChips() === 31);
 
     messages.onNext({user: 2, text: "fold"});
     scheduler.advanceBy(5000);
@@ -170,17 +172,17 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 4, text: "call"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 16);
-    assert(game.pot.getTotalChips() === 43);
+    assert(game.potManager.getTotalChips() === 43);
 
     messages.onNext({user: 5, text: "call"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 0);
-    assert(game.pot.getTotalChips() === 51);
+    assert(game.potManager.getTotalChips() === 51);
 
     messages.onNext({user: 4, text: "bet"});
     scheduler.advanceBy(5000);
     assert(game.currentBet === 1);
-    assert(game.pot.getTotalChips() === 52);
+    assert(game.potManager.getTotalChips() === 52);
 
     game.quit();
   });
@@ -208,16 +210,16 @@ describe('TexasHoldem', function() {
     assert(players[3].isAllIn);
 
     messages.onNext({user: 1, text: "Call"});
-    assert(game.pot.getTotalChips() === 403);
+    assert(game.potManager.getTotalChips() === 403);
     scheduler.advanceBy(5000);
 
-    var winner = game.lastHandResult.winners[0];
+    var lastResult = game.potManager.outcomes.pop();
+    var winner = lastResult.winners[0];
     assert(winner.id === 1 || winner.id === 4);
 
     // Check that the losing player was eliminated, or that the pot was split.
     assert(game.board.length === 0);
-    assert(game.getPlayersInHand().length === 4 ||
-      game.lastHandResult.isSplitPot);
+    assert(game.getPlayersInHand().length === 4 || lastResult.isSplitPot);
     game.quit();
   });
 
@@ -270,9 +272,10 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 4, text: "Check"});
     scheduler.advanceBy(5000);
 
-    assert(game.lastHandResult.isSplitPot);
-    assert(game.lastHandResult.winners.length === 2);
-    assert(game.lastHandResult.handName === 'four of a kind');
+    var lastResult = game.potManager.outcomes.pop();
+    assert(lastResult.isSplitPot);
+    assert(lastResult.winners.length === 2);
+    assert(lastResult.handName === 'four of a kind');
     game.quit();
   });
 
@@ -289,8 +292,9 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 2, text: "Fold"});
     scheduler.advanceBy(5000);
 
-    assert(game.lastHandResult.winners[0].name === 'Stu Ungar');
-    assert(!game.lastHandResult.isSplitPot);
+    var lastResult = game.potManager.outcomes.pop();
+    assert(lastResult.winners[0].name === 'Stu Ungar');
+    assert(!lastResult.isSplitPot);
     game.quit();
   });
 
@@ -378,7 +382,7 @@ describe('TexasHoldem', function() {
     scheduler.advanceBy(5000);
 
     // Stu has the option, and raises.
-    assert(game.pot.getTotalChips() === 10);
+    assert(game.potManager.getTotalChips() === 10);
     assert(game.actingPlayer.name === 'Stu Ungar');
     messages.onNext({user: 3, text: "Raise"});
     scheduler.advanceBy(5000);
@@ -437,7 +441,8 @@ describe('TexasHoldem', function() {
 
     // Check that one of the last two players won, although the result is
     // random. Also assert that the hand was ended and the dealer button moved.
-    var winner = game.lastHandResult.winners[0];
+    var lastResult = game.potManager.outcomes.pop();
+    var winner = lastResult.winners[0];
     assert(winner.id === 2 || winner.id === 3);
     assert(game.board.length === 0);
     assert(game.dealerButton === 1);

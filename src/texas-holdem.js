@@ -1,8 +1,8 @@
 const rx = require('rx');
 const _ = require('underscore-plus');
 
-const Pot = require('./pot');
 const Deck = require('./deck');
+const PotManager = require('./pot-manager');
 const PlayerOrder = require('./player-order');
 const PlayerStatus = require('./player-status');
 const ImageHelpers = require('./image-helpers');
@@ -24,6 +24,7 @@ class TexasHoldem {
     this.scheduler = scheduler;
 
     this.deck = new Deck();
+    this.potManager = new PotManager(this.channel, players);
     this.smallBlind = 1;
     this.bigBlind = this.smallBlind * 2;
     this.gameEnded = new rx.Subject();
@@ -99,11 +100,15 @@ class TexasHoldem {
 
     let handEnded = new rx.Subject();
 
-    this.doBettingRound('preflop').subscribe((result) =>
-      result.isHandComplete ?
-        this.endHand(handEnded, result) :
-        this.flop(handEnded));
-
+    this.doBettingRound('preflop').subscribe(result => {
+      if (result.isHandComplete) {
+        this.potManager.endHand(result);
+        this.onHandEnded(handEnded);
+      } else {
+        this.flop(handEnded);
+      }
+    });
+    
     return handEnded;
   }
 
@@ -119,7 +124,7 @@ class TexasHoldem {
     }
     
     let participants = _.filter(this.players, p => p.isInHand);
-    this.pot = new Pot(participants);
+    this.potManager.startPot(participants);
     
     this.smallBlindIdx = PlayerOrder.getNextPlayerIndex(this.dealerButton, this.players);
     this.bigBlindIdx = PlayerOrder.getNextPlayerIndex(this.smallBlindIdx, this.players);
@@ -131,8 +136,8 @@ class TexasHoldem {
   //
   // Returns an {Observable} signaling the completion of the round
   doBettingRound(round) {
-    // NB: If there aren't at least two players with chips to bet, move along
-    // to a showdown.
+    // If there aren't at least two players with chips to bet, move along to a
+    // showdown.
     let playersRemaining = this.getPlayersInHand();
     let playersWhoCanBet = _.filter(playersRemaining, p => !p.isAllIn);
     if (playersWhoCanBet.length < 2) {
@@ -146,7 +151,7 @@ class TexasHoldem {
 
     this.resetPlayersForBetting(round, previousActions);
 
-    // NB: Take the players remaining in the hand, in order, and poll each for
+    // Take the players remaining in the hand, in order, and poll each for
     // an action. This cycle will be repeated until the round is ended, which
     // can occur after any player action.
     let queryPlayers = rx.Observable.fromArray(this.orderedPlayers)
@@ -197,7 +202,7 @@ class TexasHoldem {
     this.onPlayerAction(sbPlayer, sbAction, previousActions, null, 'small blind');
     this.onPlayerAction(bbPlayer, bbAction, previousActions, null, 'big blind');
 
-    // NB: So, in the preflop round we want to treat the big blind as the
+    // So, in the preflop round we want to treat the big blind as the
     // bettor. Because the bet was implict, that player also has an "option,"
     // i.e., they will be the last to act.
     bbPlayer.hasOption = true;
@@ -219,7 +224,7 @@ class TexasHoldem {
       // Display player position and who's next to act before polling.
       PlayerStatus.displayHandStatus(this.channel,
         this.players, player,
-        this.pot.getTotalChips(), this.dealerButton,
+        this.potManager.getTotalChips(), this.dealerButton,
         this.bigBlindIdx, this.smallBlindIdx,
         this.tableFormatter);
 
@@ -318,7 +323,7 @@ class TexasHoldem {
 
     let wagerIncrease = action.amount - previousWager;
     player.chips -= wagerIncrease;
-    this.pot.add(wagerIncrease);
+    this.potManager.addToPot(wagerIncrease);
 
     return action.amount;
   }
@@ -336,6 +341,7 @@ class TexasHoldem {
     let everyoneActed = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     player.isInHand = false;
+    this.potManager.removePlayerFromPot(player);
     let playersRemaining = this.getPlayersInHand();
 
     if (playersRemaining.length === 1) {
@@ -422,11 +428,16 @@ class TexasHoldem {
     let flop = [this.deck.drawCard(), this.deck.drawCard(), this.deck.drawCard()];
     this.board = flop;
 
-    this.postBoard('flop').subscribe(() =>
-      this.doBettingRound('flop').subscribe((result) =>
-        result.isHandComplete ?
-          this.endHand(handEnded, result) :
-          this.turn(handEnded)));
+    this.postBoard('flop').subscribe(() => {
+      this.doBettingRound('flop').subscribe(result => {
+        if (result.isHandComplete) {
+          this.potManager.endHand(result);
+          this.onHandEnded(handEnded);
+        } else {
+          this.turn(handEnded);
+        }
+      });
+    });
   }
 
   // Private: Displays the turn card and does an additional round of betting.
@@ -438,12 +449,17 @@ class TexasHoldem {
     this.deck.drawCard(); // Burn one
     let turn = this.deck.drawCard();
     this.board.push(turn);
-
-    this.postBoard('turn').subscribe(() =>
-      this.doBettingRound('turn').subscribe((result) =>
-        result.isHandComplete ?
-          this.endHand(handEnded, result) :
-          this.river(handEnded)));
+    
+    this.postBoard('turn').subscribe(() => {
+      this.doBettingRound('turn').subscribe(result => {
+        if (result.isHandComplete) {
+          this.potManager.endHand(result);
+          this.onHandEnded(handEnded);
+        } else {
+          this.river(handEnded);
+        }
+      });
+    });
   }
 
   // Private: Displays the river card and does a final round of betting.
@@ -456,33 +472,30 @@ class TexasHoldem {
     let river = this.deck.drawCard();
     this.board.push(river);
 
-    this.postBoard('river').subscribe(() =>
-      this.doBettingRound('river').subscribe((result) => {
+    this.postBoard('river').subscribe(() => {
+      this.doBettingRound('river').subscribe(result => {
         // Still no winner? Time for a showdown.
         if (!result.isHandComplete) {
-          result = this.pot.doShowdown(this.playerHands, this.board);
+          this.potManager.doShowdown(this.playerHands, this.board);
+        } else {
+          this.potManager.endHand(result);
         }
-        this.endHand(handEnded, result);
-      }));
+        this.onHandEnded(handEnded);
+      });
+    });
   }
-
-  // Private: Does work after the hand, including declaring a winner, giving
-  // them chips, and moving the dealer button.
+  
+  // Private: Move the dealer button and see if the game has ended.
   //
   // handEnded - A {Subject} that is used to end the hand
-  // result - An object with keys for the winning player and (optionally) the
-  //          hand, if a showdown was required
   //
   // Returns nothing
-  endHand(handEnded, result) {
-    let resultMessage = this.pot.handleResult(result);
-    this.channel.send(resultMessage);
-    
+  onHandEnded(handEnded) {
     this.dealerButton = (this.dealerButton + 1) % this.players.length;
-    this.lastHandResult = result;
 
     handEnded.onNext(true);
     handEnded.onCompleted();
+    
     this.checkForGameWinner();
   }
 
