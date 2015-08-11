@@ -12,33 +12,54 @@ class PotManager {
     this.outcomes = [];
   }
   
-  startHand(participants) {
-    this.currentPot = { amount: 0, participants: participants };
+  createPot(participants, amount=0) {
+    this.currentPot = { 
+      participants: participants, 
+      amount: amount 
+    };
     this.pots.push(this.currentPot);
   }
   
   startBettingRound() {
     this.currentBet = 0;
+    this.allInPlayers = [];
+  }
+  
+  endBettingRound() {
+    for (let player of this.allInPlayers) {
+      let otherPlayers = _.without(this.currentPot.participants, player);
+      let sidePotParticipants = _.filter(otherPlayers, p => p.chips > 0);
+      
+      if (sidePotParticipants.length > 0) {
+        let sidePotAmount = 0;
+        
+        let shortStackDelta = this.currentBet - player.lastAction.amount;
+        if (shortStackDelta > 0) {
+          sidePotAmount = shortStackDelta * sidePotParticipants.length;
+          this.currentPot.amount -= sidePotAmount;
+        }
+        
+        this.createPot(sidePotParticipants, sidePotAmount);
+      }
+    }
   }
   
   updatePotForAction(player, action) {
     switch (action.name) {
-    case 'check':
-      return;
     case 'fold':
       this.removePlayerFromAllPots(player);
-      return;
+      break;
     case 'call':
       // Calls don't specify an amount, but they are a wager nonetheless.
       action.amount = this.currentBet;
+      this.updateChipsAndPot(player, action);
       break;
     case 'bet':
     case 'raise':
       this.correctInvalidBets(action);
+      this.currentBet = this.updateChipsAndPot(player, action);
       break;
     }
-    
-    this.currentBet = this.updateChipsAndPot(player, action);
   }
 
   // Private: Update a player's chip stack and the pot based on a wager.
@@ -55,28 +76,37 @@ class PotManager {
     if (action.amount >= availableChips) {
       action.amount = availableChips;
     }
-
+    
     let wagerIncrease = action.amount - previousWager;
     player.chips -= wagerIncrease;
     this.currentPot.amount += wagerIncrease;
+    
+    if (player.chips === 0) {
+      this.allInPlayers.push(player);
+    }
 
     return action.amount;
   }
 
-  getTotalChips() {
-    return _.reduce(this.pots, (total, pot) => total + pot.amount, 0);
-  }
-  
   doShowdown(playerHands, board) {
+    let outcome = [];
     for (let pot of this.pots) {
       pot.result = HandEvaluator.evaluateHands(pot.participants, playerHands, board);
       this.handleOutcome(pot);
+      outcome.push(pot.result);
+    }
+    
+    if (outcome.length === 1) {
+      this.outcomes.push(outcome[0]);
+    } else {
+      this.outcomes.push(outcome);
     }
   }
   
   endHand(result) {
     this.currentPot.result = result;
     this.handleOutcome(this.currentPot);
+    this.outcomes.push(result);
   }
   
   handleOutcome(pot) {
@@ -89,7 +119,7 @@ class PotManager {
           message += `${winner.name}, `;
           winner.chips += Math.floor(pot.amount / result.winners.length);
         } else {
-          message += `and ${winner.name} split the pot`;
+          message += `and ${winner.name} split the pot of $${pot.amount}`;
           winner.chips += Math.ceil(pot.amount / result.winners.length);
         }
       });
@@ -105,7 +135,10 @@ class PotManager {
     }
     
     this.channel.send(message);
-    this.outcomes.push(result);
+  }
+  
+  getTotalChips() {
+    return _.reduce(this.pots, (total, pot) => total + pot.amount, 0);
   }
   
   removePlayerFromAllPots(player) {

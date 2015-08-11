@@ -124,7 +124,7 @@ class TexasHoldem {
     }
     
     let participants = _.filter(this.players, p => p.isInHand);
-    this.potManager.startHand(participants);
+    this.potManager.createPot(participants);
     
     this.smallBlindIdx = PlayerOrder.getNextPlayerIndex(this.dealerButton, this.players);
     this.bigBlindIdx = PlayerOrder.getNextPlayerIndex(this.smallBlindIdx, this.players);
@@ -162,7 +162,7 @@ class TexasHoldem {
       .publish();
 
     queryPlayers.connect();
-    return roundEnded;
+    return roundEnded.do(() => this.potManager.endBettingRound());
   }
 
   // Private: Resets all player state from the previous round. If this is the

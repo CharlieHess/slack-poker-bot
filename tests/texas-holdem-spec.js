@@ -120,13 +120,19 @@ describe('TexasHoldem', function() {
 
     // Chip triples up his initial stack of 50.
     var lastResult = game.potManager.outcomes.pop();
-    var winner = lastResult.winners[0];
-    assert(winner.id === 5);
-    assert(winner.chips === 150);
-
+    assert(lastResult.length === 2);
+    assert(!lastResult[0].isSplitPot);
+    assert(lastResult[0].winners[0].name === 'Chip Reese');
+    assert(lastResult[0].winners[0].chips === 150);
+    
     // Doyle and Stu split the remainder (Stu would be 150, but posted SB).
+    assert(lastResult[1].isSplitPot);
+    assert(lastResult[1].winners.length === 2);
+    assert(lastResult[1].winners[0].name === 'Doyle Brunson');
+    assert(lastResult[1].winners[1].name === 'Stu Ungar');
     assert(players[1].chips === 150);
     assert(players[2].chips === 149);
+    
     game.quit();
   });
 
