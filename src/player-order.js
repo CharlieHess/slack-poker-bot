@@ -38,7 +38,7 @@ module.exports = class PlayerOrder {
   //
   // Returns true if this player is the last to act, false otherwise
   static isLastToAct(actingPlayer, players) {
-    let playersRemaining = _.filter(players, p => p.isInHand && !p.isAllIn);
+    let playersRemaining = _.filter(players, p => p.isInHand && p.isInRound);
     let currentIndex = playersRemaining.indexOf(actingPlayer);
 
     let bettor = _.find(playersRemaining, p => p.isBettor);
@@ -53,11 +53,12 @@ module.exports = class PlayerOrder {
     // If there is a bettor, there are two cases we need to handle:
     // 1. Default case; is this the player immediately before the bettor?
     // 2. Special case; a player in the BB has an option to raise.
+    let nextIndex = PlayerOrder.getNextPlayerIndex(currentIndex, playersRemaining);
     let playerWithOption = _.find(playersRemaining, p => p.hasOption);
 
-    return playerWithOption ?
-      actingPlayer === playerWithOption :
-      (currentIndex + 1) % playersRemaining.length === bettorIndex;
+    return !playerWithOption ?
+      nextIndex === bettorIndex :
+      actingPlayer === playerWithOption;
   }
 
   // Public: Returns the index of the next player to act.
@@ -71,7 +72,7 @@ module.exports = class PlayerOrder {
     do {
       index = (index + 1) % players.length;
       player = players[index];
-    } while (!player.isInHand);
+    } while (!player.isInHand || !player.isInRound);
 
     return index;
   }

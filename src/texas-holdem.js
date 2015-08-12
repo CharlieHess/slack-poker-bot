@@ -118,7 +118,7 @@ class TexasHoldem {
   // Returns nothing
   initializeHand() {
     for (let player of this.players) {
-      player.isInHand = player.chips > 0;
+      player.isInRound = player.isInHand = player.chips > 0;
       player.isAllIn = false;
       player.isBettor = false;
     }
@@ -174,6 +174,7 @@ class TexasHoldem {
   // Returns nothing
   resetPlayersForBetting(round, previousActions) {
     for (let player of this.players) {
+      player.isInRound = player.chips > 0;
       player.lastAction = null;
       player.isBettor = false;
       player.hasOption = false;

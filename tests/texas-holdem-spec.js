@@ -17,6 +17,7 @@ describe('TexasHoldem', function() {
         return { send: function() { } };
       }
     };
+    
     messages = new rx.Subject();
     channel = {
       send: function(message) {
@@ -24,6 +25,7 @@ describe('TexasHoldem', function() {
         return { updateMessage: function() { } };
       }
     };
+    
     scheduler = new rx.HistoricalScheduler();
     players = [
       { id: 1, name: 'Phil Ivey' },
@@ -35,7 +37,7 @@ describe('TexasHoldem', function() {
 
     game = new TexasHoldem(slack, messages, channel, players, scheduler);
 
-    // NB: We don't want to create any images during tests, so just have this
+    // We don't want to create any images during tests, so just have this
     // function write to the console.
     game.postBoard = function(round) {
       console.log("Dealing the " + round + ": " + game.board.toString());
@@ -45,7 +47,38 @@ describe('TexasHoldem', function() {
     // Improves the appearance of player status in the console.
     game.tableFormatter = "\n";
   });
+  
+  it('should handle multiple side pots and all-ins over the top', function() {
+    game.start(0);
 
+    // Lots of short stacks this time around.
+    players[1].chips = 150;
+    players[2].chips = 100;
+    players[3].chips = 75;
+    players[4].chips = 50;
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "Raise 50"});
+    scheduler.advanceBy(5000);
+    assert(players[4].chips === 0);
+    assert(game.potManager.pots[0].amount === 55);
+    
+    messages.onNext({user: 1, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Call"});
+    scheduler.advanceBy(5000);
+    assert(game.potManager.pots[0].amount === 202);
+    
+    messages.onNext({user: 4, text: "Raise 75"});
+    scheduler.advanceBy(5000);
+    assert(players[3].chips === 0);
+    assert(game.potManager.pots[0].amount === 275);
+  });
+  
   it("should divide pots based on a player's stake", function() {
     game.start(0);
 
