@@ -48,12 +48,12 @@ describe('TexasHoldem', function() {
     game.tableFormatter = "\n";
   });
   
-  it('should handle multiple side pots and all-ins over the top', function() {
+  it.only('should handle multiple side pots and all-ins over the top', function() {
     game.start(0);
 
     // Lots of short stacks this time around.
-    players[1].chips = 150;
-    players[2].chips = 100;
+    players[1].chips = 149;
+    players[2].chips = 98;
     players[3].chips = 75;
     players[4].chips = 50;
     scheduler.advanceBy(5000);
@@ -73,10 +73,31 @@ describe('TexasHoldem', function() {
     scheduler.advanceBy(5000);
     assert(game.potManager.pots[0].amount === 202);
     
+    // Over the top all-in.
     messages.onNext({user: 4, text: "Raise 75"});
     scheduler.advanceBy(5000);
     assert(players[3].chips === 0);
     assert(game.potManager.pots[0].amount === 275);
+    
+    messages.onNext({user: 1, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Raise 100"});
+    scheduler.advanceBy(5000);
+    assert(players[2].chips === 0);
+    assert(game.potManager.pots[0].amount === 375);
+    
+    messages.onNext({user: 1, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Call"});
+    scheduler.advanceBy(5000);
+    
+    assert(game.potManager.pots.length === 4);
+    assert(game.potManager.pots[0].amount === 250);
+    assert(game.potManager.pots[1].amount === 100);
+    assert(game.potManager.pots[2].amount === 75);
+    assert(game.potManager.pots[3].amount === 0);
   });
   
   it("should divide pots based on a player's stake", function() {
