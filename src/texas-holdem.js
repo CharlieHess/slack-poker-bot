@@ -225,7 +225,7 @@ class TexasHoldem {
       // Display player position and who's next to act before polling.
       PlayerStatus.displayHandStatus(this.channel,
         this.players, player,
-        this.potManager.getTotalChips(), this.dealerButton,
+        this.potManager, this.dealerButton,
         this.bigBlindIdx, this.smallBlindIdx,
         this.tableFormatter);
 
@@ -271,7 +271,7 @@ class TexasHoldem {
       break;
     case 'bet':
     case 'raise':
-      this.onPlayerBet(player);
+      this.onPlayerBet(player, roundEnded);
       break;
     }
   }
@@ -350,16 +350,23 @@ class TexasHoldem {
   // player - The player who bet or raised
   //
   // Returns nothing
-  onPlayerBet(player) {
+  onPlayerBet(player, roundEnded) {
     let currentBettor = _.find(this.players, p => p.isBettor);
     if (currentBettor) {
       currentBettor.isBettor = false;
       currentBettor.hasOption = false;
     }
-
+    
     player.isBettor = true;
     if (player.chips === 0) {
       player.isAllIn = true;
+    }
+    
+    let playersWhoCanCall = _.filter(this.players, 
+      p => p.isInHand && !p.isBettor && p.chips > 0);
+    if (playersWhoCanCall.length === 0) {
+      let result = { isHandComplete: false };
+      roundEnded.onNext(result);
     }
   }
 
