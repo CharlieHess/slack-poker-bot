@@ -147,9 +147,13 @@ class PlayerInteraction {
 
     // Prevent players from raising when they don't have enough chips.
     let raiseIndex = availableActions.indexOf('raise');
-    if (raiseIndex > -1 &&
-      _.max(betActions, a => a.amount).amount >= player.chips) {
-      availableActions.splice(raiseIndex, 1);
+    if (raiseIndex > -1) {
+      let previousWager = player.lastAction ? player.lastAction.amount : 0;
+      let availableChips = player.chips + previousWager;
+      
+      if (_.max(betActions, a => a.amount).amount >= availableChips) {
+        availableActions.splice(raiseIndex, 1);
+      }
     }
 
     availableActions.push('fold');
