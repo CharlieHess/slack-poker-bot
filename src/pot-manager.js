@@ -26,9 +26,14 @@ class PotManager {
   }
   
   endBettingRound() {
+    // Start with the shortest stack.
+    this.allInPlayers = _.sortBy(this.allInPlayers, p => p.lastAction.amount);
+    
     for (let player of this.allInPlayers) {
-      let otherPlayers = _.without(this.currentPot.participants, player);
-      let sidePotParticipants = _.filter(otherPlayers, p => p.chips > 0);
+      console.log(`Building side pot for ${player.name}, who wagered ${player.lastAction.amount}`);
+      
+      let sidePotParticipants = _.without(this.currentPot.participants, player);
+      console.log(`Players eligible for side pot: ${sidePotParticipants.length}`);
       
       if (sidePotParticipants.length > 0) {
         let sidePotAmount = 0;
@@ -56,7 +61,7 @@ class PotManager {
       break;
     case 'bet':
     case 'raise':
-      this.correctInvalidBets(action);
+      this.correctInvalidBets(player, action);
       this.currentBet = this.updateChipsAndPot(player, action);
       break;
     }
@@ -91,6 +96,8 @@ class PotManager {
   doShowdown(playerHands, board) {
     let outcome = [];
     for (let pot of this.pots) {
+      if (pot.amount === 0) continue;
+      
       pot.result = HandEvaluator.evaluateHands(pot.participants, playerHands, board);
       this.handleOutcome(pot);
       outcome.push(pot.result);
@@ -101,12 +108,14 @@ class PotManager {
     } else {
       this.outcomes.push(outcome);
     }
+    this.pots = [];
   }
   
   endHand(result) {
     this.currentPot.result = result;
     this.handleOutcome(this.currentPot);
     this.outcomes.push(result);
+    this.pots = [];
   }
   
   handleOutcome(pot) {
@@ -148,13 +157,22 @@ class PotManager {
     }
   }
   
-  correctInvalidBets(action) {
+  correctInvalidBets(player, action) {
     if (isNaN(action.amount)) {
       // If another player has bet, the default raise is 2x. Otherwise use the
       // minimum bet (1 small blind).
       action.amount = this.currentBet ?
         this.currentBet * 2 :
         this.minimumBet;
+    }
+    
+    if (action.amount > this.currentBet) {
+      // If there are no players left in the hand with chips, and a player
+      // raises, the raise is actually a call.
+      let playersWhoCanCall = _.filter(this.players, p => p.isInHand && p !== player && p.chips > 0);
+      if (playersWhoCanCall.length === 0) {
+        action.amount = this.currentBet;
+      }
     }
   }
 }
