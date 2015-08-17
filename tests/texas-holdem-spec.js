@@ -1,6 +1,7 @@
 require('babel/register');
 
 var rx = require('rx');
+var _ = require('underscore-plus');
 var assert = require('chai').assert;
 
 var Card = require('../src/card');
@@ -48,9 +49,9 @@ describe('TexasHoldem', function() {
     game.tableFormatter = "\n";
   });
   
-  it.only('should handle multiple side pots and all-ins over the top', function() {
+  it('should handle multiple side pots and all-ins over the top', function() {
     game.start(0);
-
+    
     // Lots of short stacks this time around.
     players[1].chips = 149;
     players[2].chips = 98;
@@ -98,6 +99,21 @@ describe('TexasHoldem', function() {
     assert(game.potManager.pots[1].amount === 100);
     assert(game.potManager.pots[2].amount === 75);
     assert(game.potManager.pots[3].amount === 0);
+    
+    messages.onNext({user: 2, text: "Bet 50"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 1, text: "Call"});
+    scheduler.advanceBy(5000);
+    
+    var playersRemaining = _.filter(game.players, function(player) {
+      return player.isInHand;
+    });
+    
+    var totalChips = _.reduce(playersRemaining, function(total, player) {
+      return total + player.chips;
+    }, 0);
+    
+    assert(totalChips === 572); // 575 minus SB and BB
   });
   
   it("should divide pots based on a player's stake", function() {
@@ -271,11 +287,11 @@ describe('TexasHoldem', function() {
     scheduler.advanceBy(5000);
 
     assert(game.potManager.currentBet === 200);
+    assert(game.potManager.getTotalChips() === 223);
     assert(players[3].chips === 0);
     assert(players[3].isAllIn);
 
     messages.onNext({user: 1, text: "Call"});
-    assert(game.potManager.getTotalChips() === 403);
     scheduler.advanceBy(5000);
 
     var lastResult = game.potManager.outcomes.pop();

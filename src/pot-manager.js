@@ -30,22 +30,19 @@ class PotManager {
     this.allInPlayers = _.sortBy(this.allInPlayers, p => p.lastAction.amount);
     
     for (let player of this.allInPlayers) {
-      console.log(`Building side pot for ${player.name}, who wagered ${player.lastAction.amount}`);
       
+      let shortStackDelta = this.currentBet - player.lastAction.amount;
       let sidePotParticipants = _.without(this.currentPot.participants, player);
-      console.log(`Players eligible for side pot: ${sidePotParticipants.length}`);
+      let sidePotAmount = 0;
       
-      if (sidePotParticipants.length > 0) {
-        let sidePotAmount = 0;
-        
-        let shortStackDelta = this.currentBet - player.lastAction.amount;
-        if (shortStackDelta > 0) {
-          sidePotAmount = shortStackDelta * sidePotParticipants.length;
-          this.currentPot.amount -= sidePotAmount;
-        }
-        
-        this.createPot(sidePotParticipants, sidePotAmount);
+      if (shortStackDelta > 0) {
+        let numberOfCallers = this.currentPot.participants.length;
+        let mainPotAmount = shortStackDelta * numberOfCallers;
+        sidePotAmount = this.currentPot.amount - mainPotAmount;
+        this.currentPot.amount = mainPotAmount;
       }
+      
+      this.createPot(sidePotParticipants, sidePotAmount);
     }
   }
   
