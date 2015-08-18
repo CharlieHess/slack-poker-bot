@@ -26,27 +26,40 @@ class PotManager {
   }
   
   endBettingRound() {
-    // Start with the shortest stack.
     this.allInPlayers = _.sortBy(this.allInPlayers, p => p.lastAction.amount);
-    
+
+    let mainPot = this.currentPot;
+    let amountSetAside = 0;
+
     for (let player of this.allInPlayers) {
-      console.log(`Building side pot for ${player.name}, who wagered ${player.lastAction.amount}`);
-      
+      let currentPotLevel = player.lastAction.amount;
+      let nextPotLevel = this.getNextPotLevel(player.lastAction.amount);
+
       let sidePotParticipants = _.without(this.currentPot.participants, player);
-      console.log(`Players eligible for side pot: ${sidePotParticipants.length}`);
-      
-      if (sidePotParticipants.length > 0) {
-        let sidePotAmount = 0;
-        
-        let shortStackDelta = this.currentBet - player.lastAction.amount;
-        if (shortStackDelta > 0) {
-          sidePotAmount = shortStackDelta * sidePotParticipants.length;
-          this.currentPot.amount -= sidePotAmount;
-        }
-        
-        this.createPot(sidePotParticipants, sidePotAmount);
+      let sidePotAmount = 0;
+
+      let potDelta = nextPotLevel - currentPotLevel;
+      if (potDelta > 0) {
+        sidePotAmount = potDelta * sidePotParticipants.length;
+        console.log(`Side pot amount: ${sidePotAmount}, players: ${sidePotParticipants.length}`);
       }
+      
+      this.createPot(sidePotParticipants, sidePotAmount);
+      amountSetAside += sidePotAmount;
     }
+    
+    mainPot.amount -= amountSetAside;
+  }
+  
+  getNextPotLevel(currentLevel) {
+    let potLevels = this.allInPlayers
+      .map(p => p.lastAction.amount)
+      .sort((a, b) => a - b);
+    potLevels.push(this.currentBet);
+    potLevels = _.uniq(potLevels);
+
+    let nextIndex = potLevels.indexOf(currentLevel) + 1;
+    return potLevels[nextIndex] || potLevels[potLevels.length - 1];
   }
   
   updatePotForAction(player, action) {

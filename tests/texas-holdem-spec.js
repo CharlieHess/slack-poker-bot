@@ -48,7 +48,7 @@ describe('TexasHoldem', function() {
     game.tableFormatter = "\n";
   });
   
-  it.only('should handle multiple side pots and all-ins over the top', function() {
+  it('should handle multiple side pots and all-ins over the top', function() {
     game.start(0);
 
     // Lots of short stacks this time around.
@@ -273,9 +273,9 @@ describe('TexasHoldem', function() {
     assert(game.potManager.currentBet === 200);
     assert(players[3].chips === 0);
     assert(players[3].isAllIn);
+    assert(game.potManager.getTotalChips() === 223);
 
     messages.onNext({user: 1, text: "Call"});
-    assert(game.potManager.getTotalChips() === 403);
     scheduler.advanceBy(5000);
 
     var lastResult = game.potManager.outcomes.pop();
