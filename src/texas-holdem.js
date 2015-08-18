@@ -2,11 +2,11 @@ const rx = require('rx');
 const _ = require('underscore-plus');
 
 const Deck = require('./deck');
-const ImageHelpers = require('./image-helpers');
-const PlayerInteraction = require('./player-interaction');
+const PotManager = require('./pot-manager');
 const PlayerOrder = require('./player-order');
 const PlayerStatus = require('./player-status');
-const HandEvaluator = require('./hand-evaluator');
+const ImageHelpers = require('./image-helpers');
+const PlayerInteraction = require('./player-interaction');
 
 class TexasHoldem {
   // Public: Creates a new game instance.
@@ -26,6 +26,7 @@ class TexasHoldem {
     this.deck = new Deck();
     this.smallBlind = 1;
     this.bigBlind = this.smallBlind * 2;
+    this.potManager = new PotManager(this.channel, players, this.smallBlind);
     this.gameEnded = new rx.Subject();
 
     // Cache the direct message channels for each player as we'll be using
@@ -93,17 +94,21 @@ class TexasHoldem {
     this.board = [];
     this.playerHands = {};
 
-    this.setupPlayers();
+    this.initializeHand();
     this.deck.shuffle();
     this.dealPlayerCards();
 
     let handEnded = new rx.Subject();
 
-    this.doBettingRound('preflop').subscribe((result) =>
-      result.isHandComplete ?
-        this.endHand(handEnded, result) :
-        this.flop(handEnded));
-
+    this.doBettingRound('preflop').subscribe(result => {
+      if (result.isHandComplete) {
+        this.potManager.endHand(result);
+        this.onHandEnded(handEnded);
+      } else {
+        this.flop(handEnded);
+      }
+    });
+    
     return handEnded;
   }
 
@@ -111,14 +116,16 @@ class TexasHoldem {
   // small blind and big blind indices.
   //
   // Returns nothing
-  setupPlayers() {
+  initializeHand() {
     for (let player of this.players) {
-      player.isInHand = player.chips > 0;
+      player.isInRound = player.isInHand = player.chips > 0;
       player.isAllIn = false;
       player.isBettor = false;
     }
-
-    this.currentPot = 0;
+    
+    let participants = _.filter(this.players, p => p.isInHand);
+    this.potManager.createPot(participants);
+    
     this.smallBlindIdx = PlayerOrder.getNextPlayerIndex(this.dealerButton, this.players);
     this.bigBlindIdx = PlayerOrder.getNextPlayerIndex(this.smallBlindIdx, this.players);
   }
@@ -129,9 +136,11 @@ class TexasHoldem {
   //
   // Returns an {Observable} signaling the completion of the round
   doBettingRound(round) {
-    // NB: If every player is already all-in, end this round early.
+    // If there aren't at least two players with chips to bet, move along to a
+    // showdown.
     let playersRemaining = this.getPlayersInHand();
-    if (_.every(playersRemaining, p => p.isAllIn)) {
+    let playersWhoCanBet = _.filter(playersRemaining, p => !p.isAllIn);
+    if (playersWhoCanBet.length < 2) {
       let result = { isHandComplete: false };
       return rx.Observable.return(result);
     }
@@ -142,7 +151,7 @@ class TexasHoldem {
 
     this.resetPlayersForBetting(round, previousActions);
 
-    // NB: Take the players remaining in the hand, in order, and poll each for
+    // Take the players remaining in the hand, in order, and poll each for
     // an action. This cycle will be repeated until the round is ended, which
     // can occur after any player action.
     let queryPlayers = rx.Observable.fromArray(this.orderedPlayers)
@@ -153,7 +162,7 @@ class TexasHoldem {
       .publish();
 
     queryPlayers.connect();
-    return roundEnded;
+    return roundEnded.do(() => this.potManager.endBettingRound());
   }
 
   // Private: Resets all player state from the previous round. If this is the
@@ -165,12 +174,13 @@ class TexasHoldem {
   // Returns nothing
   resetPlayersForBetting(round, previousActions) {
     for (let player of this.players) {
+      player.isInRound = player.chips > 0;
       player.lastAction = null;
       player.isBettor = false;
       player.hasOption = false;
     }
 
-    this.currentBet = 0;
+    this.potManager.startBettingRound();
 
     if (round === 'preflop') {
       this.postBlinds(previousActions);
@@ -186,17 +196,17 @@ class TexasHoldem {
     let sbPlayer = this.players[this.smallBlindIdx];
     let bbPlayer = this.players[this.bigBlindIdx];
 
-    // NB: So, in the preflop round we want to treat the big blind as the
+    let sbAction = { name: 'bet', amount: this.smallBlind };
+    let bbAction = { name: 'bet', amount: this.bigBlind };
+
+    // Treat posting blinds as a legitimate bet action.
+    this.onPlayerAction(sbPlayer, sbAction, previousActions, null, 'small blind');
+    this.onPlayerAction(bbPlayer, bbAction, previousActions, null, 'big blind');
+
+    // So, in the preflop round we want to treat the big blind as the
     // bettor. Because the bet was implict, that player also has an "option,"
     // i.e., they will be the last to act.
-    this.onPlayerBet(sbPlayer, this.smallBlind);
-    this.onPlayerBet(bbPlayer, this.bigBlind);
     bbPlayer.hasOption = true;
-
-    previousActions[sbPlayer.id] =
-      sbPlayer.lastAction = { name: 'bet', amount: this.smallBlind };
-    previousActions[bbPlayer.id] =
-      bbPlayer.lastAction = { name: 'bet', amount: this.bigBlind };
   }
 
   // Private: Displays player position and who's next to act, pauses briefly,
@@ -215,7 +225,7 @@ class TexasHoldem {
       // Display player position and who's next to act before polling.
       PlayerStatus.displayHandStatus(this.channel,
         this.players, player,
-        this.currentPot, this.dealerButton,
+        this.potManager, this.dealerButton,
         this.bigBlindIdx, this.smallBlindIdx,
         this.tableFormatter);
 
@@ -229,69 +239,40 @@ class TexasHoldem {
     });
   }
 
-  // Private: Occurs when a player action is received. Check the remaining
-  // players and the previous actions, and possibly end the round of betting or
-  // the hand entirely.
+  // Private: Occurs immediately after a player action is received. First,
+  // validate the action and possibly modify the amount wagered. Then see if
+  // the action caused the betting round to end.
   //
   // player - The player who acted
   // action - The action the player took
   // previousActions - A map of players to their most recent action
   // roundEnded - A {Subject} used to end the betting round
+  // postingBlind - (Optional) String describing the blind, or empty
   //
   // Returns nothing
-  onPlayerAction(player, action, previousActions, roundEnded) {
-    this.validatePlayerAction(player, action);
-    this.postActionToChannel(player, action);
+  onPlayerAction(player, action, previousActions, roundEnded, postingBlind='') {
+    this.potManager.updatePotForAction(player, action);
+    this.postActionToChannel(player, action, postingBlind);
 
-    // NB: Save the action in various structures and return it with a
-    // reference to the acting player.
+    // Now that the action has been validated, save it for future reference.
     player.lastAction = action;
     previousActions[player.id] = action;
 
+    // All of these methods assume that the action is valid.
     switch (action.name) {
     case 'fold':
       this.onPlayerFolded(player, roundEnded);
       break;
     case 'check':
-      this.onPlayerChecked(player, previousActions, roundEnded);
+      this.onPlayerChecked(player, roundEnded);
       break;
     case 'call':
       this.onPlayerCalled(player, roundEnded);
       break;
     case 'bet':
     case 'raise':
-      this.onPlayerBet(player, action.amount);
+      this.onPlayerBet(player, roundEnded);
       break;
-    }
-  }
-
-  // Private: If a player bet or raise, but didn't specify an amount or the
-  // amount was greater than their chip stack, this will correct it.
-  //
-  // player - The acting player
-  // action - The action that they took
-  //
-  // Returns nothing
-  validatePlayerAction(player, action) {
-    if (action.name === 'bet' || action.name === 'raise') {
-      // If another player has bet, the default raise is 2x. Otherwise the
-      // minimum bet is 1 small blind.
-      if (isNaN(action.amount)) {
-        action.amount = this.currentBet ?
-          this.currentBet * 2 :
-          this.smallBlind;
-      }
-
-      if (player.lastAction && player.lastAction.amount > 0) {
-        action.amount += player.lastAction.amount;
-      }
-
-      let totalChips = player.chips + (player.lastAction ? player.lastAction.amount : 0);
-      if (action.amount > totalChips) {
-        action.amount = totalChips;
-      }
-    } else if (action.name === 'call') {
-      action.amount = this.currentBet;
     }
   }
 
@@ -330,8 +311,9 @@ class TexasHoldem {
   // roundEnded - A {Subject} used to end the betting round
   //
   // Returns nothing
-  onPlayerChecked(player, previousActions, roundEnded) {
-    let everyoneChecked = this.everyPlayerTookAction(['check', 'call'], p => p.isInHand);
+  onPlayerChecked(player, roundEnded) {
+    let everyoneChecked = this.everyPlayerTookAction(['check', 'call'],
+      p => p.isInHand && !p.isAllIn);
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     if (everyoneChecked && everyoneHadATurn) {
@@ -348,14 +330,17 @@ class TexasHoldem {
   //
   // Returns nothing
   onPlayerCalled(player, roundEnded) {
-    this.updatePlayerChips(player, this.currentBet);
-
-    let everyoneCalled = this.everyPlayerTookAction(['call'], p => p.isInHand && !p.isBettor);
+    let everyoneCalled = this.everyPlayerTookAction(['call'],
+      p => p.isInHand && !p.isAllIn && !p.isBettor);
     let everyoneHadATurn = PlayerOrder.isLastToAct(player, this.orderedPlayers);
 
     if (everyoneCalled && everyoneHadATurn) {
       let result = { isHandComplete: false };
       roundEnded.onNext(result);
+    }
+
+    if (player.chips === 0) {
+      player.isAllIn = true;
     }
   }
 
@@ -363,35 +348,25 @@ class TexasHoldem {
   // betting round will cycle through all players up to the bettor.
   //
   // player - The player who bet or raised
-  // amount - The amount that was bet
   //
   // Returns nothing
-  onPlayerBet(player, amount) {
+  onPlayerBet(player, roundEnded) {
     let currentBettor = _.find(this.players, p => p.isBettor);
     if (currentBettor) {
       currentBettor.isBettor = false;
       currentBettor.hasOption = false;
     }
-
+    
     player.isBettor = true;
-    this.currentBet = amount;
-    this.updatePlayerChips(player, amount);
-  }
-
-  // Private: Update a player's chip stack and the pot based on a wager.
-  //
-  // player - The calling / betting player
-  // amount - The amount wagered
-  //
-  // Returns nothing
-  updatePlayerChips(player, amount) {
-    if (player.chips <= amount) {
+    if (player.chips === 0) {
       player.isAllIn = true;
-      this.currentPot += player.chips;
-      player.chips = 0;
-    } else {
-      player.chips -= amount;
-      this.currentPot += amount;
+    }
+    
+    let playersWhoCanCall = _.filter(this.players, 
+      p => p.isInHand && !p.isBettor && p.chips > 0);
+    if (playersWhoCanCall.length === 0) {
+      let result = { isHandComplete: false };
+      roundEnded.onNext(result);
     }
   }
 
@@ -407,11 +382,16 @@ class TexasHoldem {
     let flop = [this.deck.drawCard(), this.deck.drawCard(), this.deck.drawCard()];
     this.board = flop;
 
-    this.postBoard('flop').subscribe(() =>
-      this.doBettingRound('flop').subscribe((result) =>
-        result.isHandComplete ?
-          this.endHand(handEnded, result) :
-          this.turn(handEnded)));
+    this.postBoard('flop').subscribe(() => {
+      this.doBettingRound('flop').subscribe(result => {
+        if (result.isHandComplete) {
+          this.potManager.endHand(result);
+          this.onHandEnded(handEnded);
+        } else {
+          this.turn(handEnded);
+        }
+      });
+    });
   }
 
   // Private: Displays the turn card and does an additional round of betting.
@@ -423,12 +403,17 @@ class TexasHoldem {
     this.deck.drawCard(); // Burn one
     let turn = this.deck.drawCard();
     this.board.push(turn);
-
-    this.postBoard('turn').subscribe(() =>
-      this.doBettingRound('turn').subscribe((result) =>
-        result.isHandComplete ?
-          this.endHand(handEnded, result) :
-          this.river(handEnded)));
+    
+    this.postBoard('turn').subscribe(() => {
+      this.doBettingRound('turn').subscribe(result => {
+        if (result.isHandComplete) {
+          this.potManager.endHand(result);
+          this.onHandEnded(handEnded);
+        } else {
+          this.river(handEnded);
+        }
+      });
+    });
   }
 
   // Private: Displays the river card and does a final round of betting.
@@ -441,57 +426,30 @@ class TexasHoldem {
     let river = this.deck.drawCard();
     this.board.push(river);
 
-    this.postBoard('river').subscribe(() =>
-      this.doBettingRound('river').subscribe((result) => {
+    this.postBoard('river').subscribe(() => {
+      this.doBettingRound('river').subscribe(result => {
         // Still no winner? Time for a showdown.
         if (!result.isHandComplete) {
-          let playersRemaining = _.filter(this.players, p => p.isInHand);
-          result = HandEvaluator.evaluateHands(
-            playersRemaining,
-            this.playerHands,
-            this.board);
+          this.potManager.endHandWithShowdown(this.playerHands, this.board);
+        } else {
+          this.potManager.endHand(result);
         }
-        this.endHand(handEnded, result);
-      }));
+        this.onHandEnded(handEnded);
+      });
+    });
   }
-
-  // Private: Does work after the hand, including declaring a winner, giving
-  // them chips, and moving the dealer button.
+  
+  // Private: Move the dealer button and see if the game has ended.
   //
   // handEnded - A {Subject} that is used to end the hand
-  // result - An object with keys for the winning player and (optionally) the
-  //          hand, if a showdown was required
   //
   // Returns nothing
-  endHand(handEnded, result) {
-    let message = '';
-    if (result.isSplitPot) {
-      _.each(result.winners, winner => {
-        if (_.last(result.winners) !== winner) {
-          message += `${winner.name}, `;
-          winner.chips += Math.floor(this.currentPot / result.winners.length);
-        } else {
-          message += `and ${winner.name} split the pot`;
-          winner.chips += Math.ceil(this.currentPot / result.winners.length);
-        }
-      });
-      message += ` with ${result.handName}: ${result.hand.toString()}.`;
-    } else {
-      message = `${result.winners[0].name} wins $${this.currentPot}`;
-      if (result.hand) {
-        message += ` with ${result.handName}: ${result.hand.toString()}.`;
-      } else {
-        message += '.';
-      }
-      result.winners[0].chips += this.currentPot;
-    }
-
-    this.channel.send(message);
+  onHandEnded(handEnded) {
     this.dealerButton = (this.dealerButton + 1) % this.players.length;
-    this.lastHandResult = result;
 
     handEnded.onNext(true);
     handEnded.onCompleted();
+    
     this.checkForGameWinner();
   }
 
@@ -575,10 +533,14 @@ class TexasHoldem {
   //
   // player - The acting player
   // action - The action that they took
+  // postingBlind - (Optional) String describing the blind, or empty
   //
   // Returns nothing
-  postActionToChannel(player, action) {
-    let message = `${player.name} ${action.name}s`;
+  postActionToChannel(player, action, postingBlind='') {
+    let message = postingBlind === '' ?
+      `${player.name} ${action.name}s` :
+      `${player.name} posts ${postingBlind} of`;
+
     if (action.name === 'bet')
       message += ` $${action.amount}.`;
     else if (action.name === 'raise')

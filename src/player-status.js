@@ -8,7 +8,7 @@ class PlayerStatus {
   // channel - The channel where the status message will be displayed
   // players - The players in the game
   // actingPlayer - The player taking action
-  // currentPot - The total amount of chips in the pot
+  // potManager - Holds information about the current pot
   // dealerButton - The index of the dealer button
   // bigBlind - The index of the big blind
   // smallBlind - The index of the small blind
@@ -17,7 +17,7 @@ class PlayerStatus {
   //
   // Returns nothing
   static displayHandStatus(channel, players, actingPlayer,
-    currentPot, dealerButton, bigBlind, smallBlind, tableFormatter=`\`\`\``) {
+    potManager, dealerButton, bigBlind, smallBlind, tableFormatter=`\`\`\``) {
     let table = [];
 
     for (let idx = 0; idx < players.length; idx++) {
@@ -50,9 +50,21 @@ class PlayerStatus {
       table.push(row);
     }
 
-    let fixedWidthTable = `${tableFormatter}${textTable(table)}${tableFormatter}`;
-    let handStatus = `${fixedWidthTable}\nPot: $${currentPot}`;
-
+    let handStatus = `${tableFormatter}${textTable(table)}${tableFormatter}`;
+    let potBreakdown = '';
+    
+    for (let idx = 0; idx < potManager.pots.length; idx++) {
+      let amount = potManager.pots[idx].amount;
+      if (amount === 0) continue;
+      
+      if (idx === 0) {
+        potBreakdown += `Main Pot: $${amount}\n`;
+      } else {
+        potBreakdown += `Side Pot: $${amount}\n`;
+      }
+    }
+    
+    handStatus = `${handStatus}\n${potBreakdown}`;
     channel.send(handStatus);
   }
 }
