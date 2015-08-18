@@ -49,15 +49,20 @@ describe('TexasHoldem', function() {
     game.tableFormatter = "\n";
   });
   
-  it('should handle multiple side pots and all-ins over the top', function() {
+  it('should handle multiple side pots and all-ins over the top (scenario 1)', function() {
     game.start(0);
     
     // Lots of short stacks this time around.
+    players[0].chips = 200;
     players[1].chips = 149;
     players[2].chips = 98;
     players[3].chips = 75;
     players[4].chips = 50;
     scheduler.advanceBy(5000);
+    
+    var chipTotalBefore = _.reduce(players, function(total, player) { 
+      return total + player.chips; 
+    }, 0);
 
     messages.onNext({user: 4, text: "Call"});
     scheduler.advanceBy(5000);
@@ -104,16 +109,58 @@ describe('TexasHoldem', function() {
     scheduler.advanceBy(5000);
     messages.onNext({user: 1, text: "Call"});
     scheduler.advanceBy(5000);
-    
-    var playersRemaining = _.filter(game.players, function(player) {
-      return player.isInHand;
-    });
-    
-    var totalChips = _.reduce(playersRemaining, function(total, player) {
+
+    var chipTotalAfter = _.reduce(players, function(total, player) {
       return total + player.chips;
     }, 0);
     
-    assert(totalChips === 572); // 575 minus SB and BB
+    // If the game has ended, blinds won't be posted, causing the chip total to
+    // differ slightly.
+    assert(!game.isRunning || chipTotalBefore === chipTotalAfter);
+  });
+  
+  it('should handle multiple side pots and all-ins over the top (scenario 2)', function() {
+    game.start(0);
+    
+    players[1].chips = 149;
+    players[2].chips = 73;
+    players[3].chips = 75;
+    players[4].chips = 50;
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "Raise 50"});
+    scheduler.advanceBy(5000);
+    assert(players[4].chips === 0);
+    assert(game.potManager.pots[0].amount === 55);
+    
+    messages.onNext({user: 1, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Call"});
+    scheduler.advanceBy(5000);
+    assert(game.potManager.pots[0].amount === 202);
+
+    messages.onNext({user: 4, text: "Raise 75"});
+    scheduler.advanceBy(5000);
+    assert(players[3].chips === 0);
+    assert(game.potManager.pots[0].amount === 275);
+    
+    messages.onNext({user: 1, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Call"});
+    scheduler.advanceBy(5000);
+    
+    console.log(game.potManager.pots.length);
+    assert(players[2].chips === 0);
+    assert(game.potManager.pots.length === 3);
+    assert(game.potManager.pots[0].amount === 250);
+    assert(game.potManager.pots[1].amount === 100);
+    assert(game.potManager.pots[2].amount === 0);
   });
   
   it("should divide pots based on a player's stake", function() {

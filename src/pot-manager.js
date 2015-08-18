@@ -13,10 +13,16 @@ class PotManager {
   }
   
   createPot(participants, amount=0) {
+    if (this.currentPot && this.currentPot.amount === 0) {
+      let index = this.pots.indexOf(this.currentPot);
+      this.pots.splice(index, 1);
+    }
+    
     this.currentPot = { 
       participants: participants, 
       amount: amount 
     };
+    
     this.pots.push(this.currentPot);
   }
   
