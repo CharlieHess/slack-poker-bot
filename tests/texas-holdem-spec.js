@@ -155,7 +155,6 @@ describe('TexasHoldem', function() {
     messages.onNext({user: 3, text: "Call"});
     scheduler.advanceBy(5000);
     
-    console.log(game.potManager.pots.length);
     assert(players[2].chips === 0);
     assert(game.potManager.pots.length === 3);
     assert(game.potManager.pots[0].amount === 250);

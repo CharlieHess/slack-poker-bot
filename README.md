@@ -16,13 +16,13 @@ A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in a
 This bot can do all of the following:
 - [x] Initiate a game and poll players to join
 - [x] Handle player order, blinds, and betting
-- [x] Handle chip stacks / pot calculations
 - [x] Send player's pocket cards as a DM
 - [x] Display board images
+- [x] Handle chip stacks / pot calculations
+- [x] Handle split pots / side pots
 - [x] Determine the best hand
 
 It still lacks support for:
-- [ ] Split pots
 - [ ] Deployability
 - [ ] Custom configuration
 
@@ -42,7 +42,7 @@ The tests produce legible output that matches what users in Slack would see. Thi
 ![](https://s3.amazonaws.com/f.cl.ly/items/2T2c472a3M390J2T2t3I/Image%202015-07-23%20at%202.26.12%20PM.png)
 
 ### Dependencies
-# [NodeJS Slack Client](https://github.com/slackhq/node-slack-client)
+* [NodeJS Slack Client](https://github.com/slackhq/node-slack-client)
 `node-slack-client` abstracts the basics of a Slack bot, including authentication, getting messages from players, and posting messages or attachments to the channel.
 
 * [RxJS](https://github.com/Reactive-Extensions/RxJS)
@@ -57,4 +57,4 @@ Each card is a separate image, and board images are created on the fly by pastin
 * [MochaJS](http://mochajs.org/)
 Most of the tricky client logic is backed up by tests, which were written using `MochaJS`.
 
-# [Vector Playing Cards](https://code.google.com/p/vector-playing-cards/)
+* [Vector Playing Cards](https://code.google.com/p/vector-playing-cards/)
