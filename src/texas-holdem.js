@@ -430,7 +430,7 @@ class TexasHoldem {
       this.doBettingRound('river').subscribe(result => {
         // Still no winner? Time for a showdown.
         if (!result.isHandComplete) {
-          this.potManager.doShowdown(this.playerHands, this.board);
+          this.potManager.endHandWithShowdown(this.playerHands, this.board);
         } else {
           this.potManager.endHand(result);
         }
