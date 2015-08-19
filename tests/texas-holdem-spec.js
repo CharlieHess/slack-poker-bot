@@ -49,6 +49,95 @@ describe('TexasHoldem', function() {
     game.tableFormatter = "\n";
   });
   
+  it('should handle multiple rounds with all-ins', function() {
+    game.start(0);
+    
+    players[0].chips = 200;
+    players[1].chips = 149;
+    players[2].chips = 98;
+    players[3].chips = 75;
+    players[4].chips = 50;
+    scheduler.advanceBy(5000);
+    
+    messages.onNext({user: 4, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 1, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Raise 8"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "Raise 50"});
+    scheduler.advanceBy(5000);
+    assert(game.potManager.getTotalChips() === 62);
+    
+    messages.onNext({user: 1, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Call"});
+    scheduler.advanceBy(5000);
+    assert(game.potManager.getTotalChips() === 200);
+    assert(game.potManager.pots.length === 2);
+    
+    messages.onNext({user: 2, text: "Bet 60"});
+    scheduler.advanceBy(5000);
+    assert(game.potManager.pots[0].amount === 200);
+    assert(game.potManager.pots[1].amount === 60);
+    
+    // Stu only has 50 chips left, so this is an all-in.
+    messages.onNext({user: 3, text: "Call"});
+    scheduler.advanceBy(5000);
+    assert(game.potManager.pots[0].amount === 200);
+    assert(game.potManager.pots[1].amount === 110);
+
+    // 60 - 50 = 10 * 2 callers = 20 chips on the side.
+    messages.onNext({user: 1, text: "Call"});
+    scheduler.advanceBy(5000);
+    assert(game.potManager.pots.length === 3);
+    assert(game.potManager.pots[0].amount === 200);
+    assert(game.potManager.pots[1].amount === 150);
+    assert(game.potManager.pots[2].amount === 20);
+    
+    messages.onNext({user: 2, text: "Check"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 1, text: "Bet 10"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Call"});
+    scheduler.advanceBy(5000);
+    assert(game.potManager.pots.length === 3);
+    assert(game.potManager.pots[0].amount === 200);
+    assert(game.potManager.pots[1].amount === 150);
+    assert(game.potManager.pots[2].amount === 40);
+    
+    messages.onNext({user: 2, text: "Bet 30"});
+    scheduler.advanceBy(5000);
+    assert(game.potManager.pots.length === 3);
+    assert(game.potManager.pots[0].amount === 200);
+    assert(game.potManager.pots[1].amount === 150);
+    assert(game.potManager.pots[2].amount === 70);
+    
+    assert(players[0].chips === 80);
+    assert(players[1].chips === 0);
+    assert(players[2].chips === 0);
+    assert(players[3].chips === 75);
+    assert(players[4].chips === 0);
+    
+    messages.onNext({user: 1, text: "Call"});
+    scheduler.advanceBy(5000);
+    
+    var chipTotalAfter = _.reduce(players, function(total, player) { 
+      return total + player.chips; 
+    }, 0);
+    
+    assert(game.isRunning);
+    assert(game.potManager.pots.length === 1);
+    assert(game.potManager.pots[0].amount === 3);
+    assert(chipTotalAfter === 572);
+  });
+  
   it('should handle multiple side pots and all-ins over the top (scenario 1)', function() {
     game.start(0);
     
