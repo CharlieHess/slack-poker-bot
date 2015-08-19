@@ -148,7 +148,8 @@ class PotManager {
   // Returns the amount of the wager after taking the player's available chips
   // into account.
   updateChipsAndPot(player, action) {
-    let previousWager = player.lastAction ? player.lastAction.amount : 0;
+    let previousWager = (player.lastAction && player.lastAction.amount) ?
+      player.lastAction.amount : 0;
     let availableChips = player.chips + previousWager;
 
     if (action.amount >= availableChips) {
