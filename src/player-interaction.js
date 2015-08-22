@@ -13,7 +13,7 @@ class PlayerInteraction {
   //
   // Returns an {Observable} that will `onNext` for each player that joins and
   // `onCompleted` when time expires or the max number of players join.
-  static pollPotentialPlayers(messages, channel, scheduler=rx.Scheduler.timeout, timeout=15, maxPlayers=10) {
+  static pollPotentialPlayers(messages, channel, scheduler=rx.Scheduler.timeout, timeout=30, maxPlayers=10) {
     let intro = `Who wants to play?`;
     let formatMessage = t => `Respond with 'yes' in this channel in the next ${t} seconds.`;
     let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, intro,

@@ -47,19 +47,21 @@ class TexasHoldem {
   // timeBetweenHands - (Optional) The time, in milliseconds, to pause between
   //                    the end of one hand and the start of another
   //
-  // Returns a {Disposable} that will end this game early
+  // Returns an {Observable} that signals completion of the game
   start(dealerButton=null, timeBetweenHands=5000) {
     this.isRunning = true;
     this.dealerButton = dealerButton === null ?
       Math.floor(Math.random() * this.players.length) :
       dealerButton;
 
-    return rx.Observable.return(true)
+    rx.Observable.return(true)
       .flatMap(() => this.playHand()
         .flatMap(() => rx.Observable.timer(timeBetweenHands, this.scheduler)))
       .repeat()
       .takeUntil(this.gameEnded)
       .subscribe();
+      
+    return this.gameEnded;
   }
 
   // Public: Ends the current game immediately.
@@ -69,7 +71,10 @@ class TexasHoldem {
     if (winner) {
       this.channel.send(`Congratulations ${winner.name}, you've won!`);
     }
+    
     this.gameEnded.onNext(winner);
+    this.gameEnded.onCompleted();
+    
     this.isRunning = false;
   }
 

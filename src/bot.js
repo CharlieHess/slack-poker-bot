@@ -26,8 +26,10 @@ class Bot {
     this.respondToDealMessages();
   }
 
-  // Private: Begins listening to messages directed to this bot and responds
-  // by polling players and starting a game.
+  // Private: Listens for messages directed at this bot that contain the word
+  // 'deal,' and poll players in response.
+  //
+  // Returns a {Disposable} that will end this subscription
   respondToDealMessages() {
     let messages = rx.Observable.fromEvent(this.slack, 'message')
       .where(e => e.type === 'message');
@@ -36,72 +38,91 @@ class Bot {
     let dealGameMessages = messages.where(e =>
       MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
         e.text.toLowerCase().match(/\bdeal\b/));
+        
+    return dealGameMessages
+      .map(e => this.slack.getChannelGroupOrDMByID(e.channel))
+      .where(channel => {
+        if (this.isPolling) {
+          return false;
+        } else if (this.isGameRunning) {
+          channel.send('Another game is in progress, quit that first.');
+          return false;
+        }
+        return true;
+      })
+      .flatMap(channel => this.pollPlayersForGame(messages, channel))
+      .subscribe();
+  }
+  
+  // Private: Polls players to join the game, and if we have enough, starts an
+  // instance.
+  //
+  // messages - An {Observable} representing messages posted to the channel
+  // channel - The channel where the deal message was posted
+  //
+  // Returns an {Observable} that signals completion of the game 
+  pollPlayersForGame(messages, channel) {
+    this.isPolling = true;
 
-    dealGameMessages.subscribe(e => {
-      let channel = this.slack.getChannelGroupOrDMByID(e.channel);
-
-      if (this.game && this.game.isRunning) {
-        channel.send("A game is already in progress, I can't deal another.");
-      } else {
-        let players = [];
+    return PlayerInteraction.pollPotentialPlayers(messages, channel)
+      .reduce((players, id) => {
+        let user = this.slack.getUserByID(id);
+        channel.send(`${user.name} has joined the game.`);
+        
+        players.push({id: user.id, name: user.name});
+        return players;
+      }, [])
+      .flatMap(players => {
+        this.isPolling = false;
         this.addBotPlayers(players);
-
-        PlayerInteraction.pollPotentialPlayers(messages, channel)
-          .subscribe(userId => {
-            let player = this.slack.getUserByID(userId);
-            players.push(player);
-
-            channel.send(`${player.name} has joined the game.`);
-          },
-          err => console.log(`Error while polling players: ${err.stack || err}`),
-          () => {
-            let messagesInChannel = messages.where(e => e.channel === channel.id);
-            this.startGame(messagesInChannel, channel, players);
-          });
-      }
-    });
+        
+        let messagesInChannel = messages.where(e => e.channel === channel.id);
+        return this.startGame(messagesInChannel, channel, players);
+      });
   }
 
-  // Private: Starts and manages a new hold'em game.
+  // Private: Starts and manages a new Texas Hold'em game.
   //
   // messages - An {Observable} representing messages posted to the channel
   // channel - The channel where the game will be played
   // players - The players participating in the game
+  //
+  // Returns an {Observable} that signals completion of the game 
   startGame(messages, channel, players) {
     if (players.length <= 1) {
       channel.send('Not enough players for a game, try again later.');
-      return;
+      return rx.Observable.return(null);
     }
 
     channel.send(`We've got ${players.length} players, let's start the game.`);
-    this.game = new TexasHoldem(this.slack, messages, channel, players);
-    this.game.start();
+    this.isGameRunning = true;
+    
+    let game = new TexasHoldem(this.slack, messages, channel, players);
+    let gameEnded = game.start();
 
-    let quitGameMessages = messages.where(e =>
-      MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
-        e.text.toLowerCase().match(/quit game/));
-
-    // TODO: Should poll players to make sure they all want to quit.
-    let listener = quitGameMessages.subscribe(e => {
-      let player = this.slack.getUserByID(e.user);
-      channel.send(`${player.name} has decided to quit the game. The game will end after this hand.`);
-
-      this.game.quit();
-      this.game = null;
-
-      listener.dispose();
-    });
+    // Listen for messages directed at the bot containing 'quit game.'
+    messages.where(e => MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
+      e.text.toLowerCase().match(/quit game/))
+      .take(1)
+      .subscribe(e => {
+        // TODO: Should poll players to make sure they all want to quit.
+        let player = this.slack.getUserByID(e.user);
+        channel.send(`${player.name} has decided to quit the game. The game will end after this hand.`);
+        game.quit();
+      });
+    
+    return gameEnded.do(() => this.isGameRunning = false);
   }
 
   // Private: Adds AI-based players (primarily for testing purposes).
   //
   // players - The players participating in the game
   addBotPlayers(players) {
-    let bot1 = new WeakBot('Phil Hellmuth');
-    let bot2 = new AggroBot('Phil Ivey');
-
-    players.push(bot1);
-    players.push(bot2);
+    // let bot1 = new WeakBot('Phil Hellmuth');
+    // let bot2 = new AggroBot('Phil Ivey');
+    // 
+    // players.push(bot1);
+    // players.push(bot2);
   }
 
   // Private: Save which channels and groups this bot is in and log them.
