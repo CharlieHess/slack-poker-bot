@@ -14,10 +14,8 @@ class PlayerInteraction {
   // Returns an {Observable} that will `onNext` for each player that joins and
   // `onCompleted` when time expires or the max number of players join.
   static pollPotentialPlayers(messages, channel, scheduler=rx.Scheduler.timeout, timeout=30, maxPlayers=10) {
-    let intro = `Who wants to play?`;
-    let formatMessage = t => `Respond with 'yes' in this channel in the next ${t} seconds.`;
-    let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, intro,
-      formatMessage, scheduler, timeout);
+    let formatMessage = t => `Who wants to play? Respond with 'yes' in this channel in the next ${t} seconds.`;
+    let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, formatMessage, scheduler, timeout);
 
     // Look for messages containing the word 'yes' and map them to a unique
     // user ID, constrained to `maxPlayers` number of players.
@@ -47,11 +45,9 @@ class PlayerInteraction {
   // expires, a 'timeout' action is returned.
   static getActionForPlayer(messages, channel, player, previousActions,
     scheduler=rx.Scheduler.timeout, timeout=30) {
-    let intro = `${player.name}, it's your turn to act.`;
     let availableActions = PlayerInteraction.getAvailableActions(player, previousActions);
-    let formatMessage = t => PlayerInteraction.buildActionMessage(availableActions, t);
-    let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, intro,
-      formatMessage, scheduler, timeout);
+    let formatMessage = t => PlayerInteraction.buildActionMessage(player, availableActions, t);
+    let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, formatMessage, scheduler, timeout);
 
     // Look for text that conforms to a player action.
     let playerAction = messages.where(e => e.user === player.id)
@@ -83,7 +79,6 @@ class PlayerInteraction {
   // itself each second to provide a countdown.
   //
   // channel - The channel to post in
-  // intro - An optional introductory message to lead off with
   // formatMessage - A function that will be invoked once per second with the
   //                 remaining time, and returns the formatted message content
   // scheduler - The scheduler to use for timing events
@@ -92,8 +87,7 @@ class PlayerInteraction {
   // Returns an object with two keys: `timeExpired`, an {Observable} sequence
   // that fires when the message expires, and `message`, the message posted to
   // the channel.
-  static postMessageWithTimeout(channel, intro, formatMessage, scheduler, timeout) {
-    channel.send(intro);
+  static postMessageWithTimeout(channel, formatMessage, scheduler, timeout) {
     let timeoutMessage = channel.send(formatMessage(timeout));
 
     let timeExpired = rx.Observable.timer(0, 1000, scheduler)
@@ -107,16 +101,17 @@ class PlayerInteraction {
   // Private: Builds up a formatted countdown message containing the available
   // actions.
   //
+  // player - The player who is acting
   // availableActions - An array of the actions available to this player
   // timeRemaining - Number of seconds remaining for the player to act
   //
   // Returns the formatted string
-  static buildActionMessage(availableActions, timeRemaining) {
-    let message = 'Respond with\n';
+  static buildActionMessage(player, availableActions, timeRemaining) {
+    let message = `${player.name}, it's your turn. Respond with\n`;
     for (let action of availableActions) {
-      message += `*(${action.charAt(0).toUpperCase()})${action.slice(1)}*\n`;
+      message += `*(${action.charAt(0).toUpperCase()})${action.slice(1)}*\t`;
     }
-    message += `in the next ${timeRemaining} seconds.`;
+    message += `\nin the next ${timeRemaining} seconds.`;
     return message;
   }
 
