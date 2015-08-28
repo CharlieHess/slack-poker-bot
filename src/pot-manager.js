@@ -275,6 +275,11 @@ class PotManager {
         this.minimumBet;
     }
     
+    // If this raise was too small, set it to 2x the current bet.
+    if (action.name === 'raise' && action.amount < this.currentBet * 2) {
+      action.amount = this.currentBet * 2;
+    }
+    
     if (action.amount > this.currentBet) {
       // If there are no players left in the hand with chips, and a player
       // raises, the raise is actually a call.
