@@ -98,7 +98,6 @@ class Bot {
     this.isGameRunning = true;
     
     let game = new TexasHoldem(this.slack, messages, channel, players);
-    let gameEnded = game.start();
 
     // Listen for messages directed at the bot containing 'quit game.'
     messages.where(e => MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
@@ -111,7 +110,9 @@ class Bot {
         game.quit();
       });
     
-    return gameEnded.do(() => this.isGameRunning = false);
+    return rx.Observable.timer(3000)
+      .flatMap(() => game.start())
+      .do(() => this.isGameRunning = false);
   }
 
   // Private: Adds AI-based players (primarily for testing purposes).
