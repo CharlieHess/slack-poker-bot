@@ -135,6 +135,10 @@ class Bot {
     this.groups = _.keys(this.slack.groups)
       .map(k => this.slack.groups[k])
       .filter(g => g.is_open && !g.is_archived);
+      
+    this.dms = _.keys(this.slack.dms)
+      .map(k => this.slack.dms[k])
+      .filter(dm => dm.is_open);
 
     console.log(`Welcome to Slack. You are ${this.slack.self.name} of ${this.slack.team.name}`);
 
@@ -146,6 +150,10 @@ class Bot {
 
     if (this.groups.length > 0) {
       console.log(`As well as: ${this.groups.map(g => g.name).join(', ')}`);
+    }
+    
+    if (this.dms.length > 0) {
+      console.log(`Your open DM's: ${this.dms.map(dm => dm.name).join(', ')}`);
     }
   }
 }
