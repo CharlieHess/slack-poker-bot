@@ -5,7 +5,7 @@ class Card {
   }
   
   toString() {
-    return `${this.rank}${this.suit.substring(0, 1).toLowerCase()}`;
+    return `${this.rank}${SuitMapping()[this.suit]}`;
   }
 
   static Ranks() {
@@ -14,6 +14,10 @@ class Card {
   
   static Suits() {
     return ['Spades', 'Hearts', 'Diamonds', 'Clubs'];
+  }
+  
+  static SuitMapping() {
+    return {'Spades':'♠︎', 'Hearts':'♥︎', 'Diamonds':'♦'︎︎, 'Clubs':'♣︎'};
   }
 }
 
