@@ -21,6 +21,10 @@ See it [in action](http://cl.ly/2G3D0B24201O).
 1. 'heroku config:set SLACK_POKER_BOT_TOKEN=[Slack api integration token]'
 1. 'git push heroku master'
 
+Or click to deploy: 
+
+[![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
+
 ### But Can It Even?
 It can:
 - [x] Initiate a game and poll players to join
