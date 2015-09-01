@@ -10,29 +10,33 @@ class Deck {
       }
     }
   }
-  
+
+  // Public: Performs a proper Fisher-Yates shuffle.
+  //
+  // Returns nothing; the shuffle is in-place.
   shuffle() {
-    let numberOfCards = this.cards.length;
-    
-    for (let index = 0; index < numberOfCards; index++) {
-      let newIndex = Deck.getRandomInt(0, numberOfCards);
-      let cardToSwap = this.cards[newIndex];
-      
-      this.cards[newIndex] = this.cards[index];
-      this.cards[index] = cardToSwap;
+    let temp, idx;
+    let cardsRemaining = this.cards.length;
+
+    // While there remain elements to shuffle…
+    while (cardsRemaining) {
+
+      // Pick a remaining element…
+      idx = Math.floor(Math.random() * cardsRemaining--);
+
+      // And swap it with the current element.
+      temp = this.cards[cardsRemaining];
+      this.cards[cardsRemaining] = this.cards[idx];
+      this.cards[idx] = temp;
     }
   }
-  
+
   drawCard() {
     return this.cards.shift();
   }
-  
+
   toString() {
     return this.cards.join();
-  }
-  
-  static getRandomInt(min, max) {
-    return Math.floor(Math.random() * (max - min)) + min;
   }
 }
 
