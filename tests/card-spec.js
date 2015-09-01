@@ -7,15 +7,15 @@ var Card = require('../src/card');
 describe('Card', function() {
   it('should display the short-hand syntax for card names', function() {
     var card = new Card('J', 'Spades');
-    assert.equal(card.toString(), 'Js');
-    
+    assert.equal(card.toString(), 'J♠');
+
     card = new Card('4', 'Diamonds');
-    assert.equal(card.toString(), '4d');
-    
+    assert.equal(card.toString(), '4♦');
+
     card = new Card('T', 'Clubs');
-    assert.equal(card.toString(), 'Tc');
-    
+    assert.equal(card.toString(), 'T♣');
+
     card = new Card('A', 'Hearts');
-    assert.equal(card.toString(), 'Ah');
+    assert.equal(card.toString(), 'A♥');
   });
 });

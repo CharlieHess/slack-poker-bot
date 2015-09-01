@@ -3,21 +3,21 @@ class Card {
     this.rank = rank;
     this.suit = suit;
   }
-  
+
   toString() {
-    return `${this.rank}${SuitMapping()[this.suit]}`;
+    return `${this.rank}${Card.SuitMapping()[this.suit]}`;
   }
 
   static Ranks() {
     return ['2', '3', '4', '5', '6', '7', '8','9', 'T', 'J', 'Q','K', 'A',];
   }
-  
+
   static Suits() {
     return ['Spades', 'Hearts', 'Diamonds', 'Clubs'];
   }
-  
+
   static SuitMapping() {
-    return {'Spades':'♠︎', 'Hearts':'♥︎', 'Diamonds':'♦'︎︎, 'Clubs':'♣︎'};
+    return {'Spades':'♠', 'Hearts':'♥', 'Diamonds':'♦', 'Clubs':'♣'};
   }
 }
 
