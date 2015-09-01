@@ -1,0 +1,15 @@
+{
+  "name": "Slack Poker Bot",
+  "description": "A bot that turns Slack into a legitimate Texas Hold'em client.",
+  "keywords": [
+    "slack",
+    "poker",
+    "bot"
+  ],
+  "repository": "https://github.com/CharlieHess/slack-poker-bot",
+  "env": {
+    "SLACK_POKER_BOT_TOKEN": {
+      "description": "Your Slack bot integration token (obtainable at https://my.slack.com/services/new/bot)"
+    }
+  }
+}
