@@ -14,6 +14,13 @@ See it [in action](http://cl.ly/2G3D0B24201O).
 1. To start a game, `@<your_bot_name>: Deal`
 1. To end a game, `@<your_bot_name>: Quit game`
 
+### HEROKU Getting Started
+1. Install [Heroku toolbelt](https://devcenter.heroku.com/articles/getting-started-with-nodejs#set-up)
+1. Create new bot integration (as above)
+1. `heroku create`
+1. 'heroku config:set SLACK_POKER_BOT_TOKEN=[Slack api integration token]'
+1. 'git push heroku master'
+
 ### But Can It Even?
 It can:
 - [x] Initiate a game and poll players to join
