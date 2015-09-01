@@ -3,7 +3,7 @@ A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in a
 
 ![](https://s3.amazonaws.com/f.cl.ly/items/1T1a021M3w0W0Y2b0n3Z/Image%202015-08-08%20at%205.45.31%20PM.png)
 
-See it [in action](http://cl.ly/2G3D0B24201O).
+See it [in action](https://www.youtube.com/watch?v=Joku-PKUObE).
 
 ### Getting Started
 1. Create a new [bot integration](https://my.slack.com/services/new/bot)
