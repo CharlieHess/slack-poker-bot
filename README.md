@@ -14,7 +14,14 @@ See it [in action](https://www.youtube.com/watch?v=Joku-PKUObE).
 1. To start a game, `@<your_bot_name>: Deal`
 1. To end a game, `@<your_bot_name>: Quit game`
 
-### HEROKU Getting Started
+#### Heroku
+
+##### For the lazy:
+Click this button:
+
+[![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
+
+##### Manually:
 1. Install [Heroku toolbelt](https://devcenter.heroku.com/articles/getting-started-with-nodejs#set-up)
 1. Create new bot integration (as above)
 1. `heroku create`
