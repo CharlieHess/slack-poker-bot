@@ -21,7 +21,7 @@ class ImageHelpers {
   // image, or `onError` if anything goes wrong
   static createBoardImage(cards, upload=imgur.uploadFile) {
     let subj = new rx.AsyncSubject();
-    let imageFiles = cards.map((c) => `resources/${c}.jpeg`);
+    let imageFiles = cards.map((c) => `resources/${c.toAsciiString()}.jpeg`);
 
     if (!fs.existsSync('./output')) {
       fs.mkdirSync('./output');

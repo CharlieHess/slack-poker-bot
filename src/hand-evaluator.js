@@ -21,7 +21,7 @@ class HandEvaluator {
 
     for (let player of players) {
       let sevenCardHand = [...playerHands[player.id], ...board];
-      let evalInput = sevenCardHand.map(card => card.toString());
+      let evalInput = sevenCardHand.map(card => card.toAsciiString());
       let currentHand = pokerEvaluator.evalHand(evalInput);
 
       if (currentHand.handType > bestHand.handType ||
@@ -59,7 +59,7 @@ class HandEvaluator {
     let cardArray = null;
 
     for (let fiveCardHand of fiveCardHands) {
-      let evalInput = fiveCardHand.map(card => card.toString());
+      let evalInput = fiveCardHand.map(card => card.toAsciiString());
       let currentHand = pokerEvaluator.evalHand(evalInput);
 
       if (currentHand.handType > bestHand.handType ||

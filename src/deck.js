@@ -38,6 +38,10 @@ class Deck {
   toString() {
     return this.cards.join();
   }
+
+  toAsciiString() {
+    return this.cards.map(card => card.toAsciiString()).join();
+  }
 }
 
 module.exports = Deck;
