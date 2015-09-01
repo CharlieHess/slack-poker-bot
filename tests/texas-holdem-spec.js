@@ -14,6 +14,7 @@ describe('TexasHoldem', function() {
   beforeEach(function() {
     slack = {
       token: 0xDEADBEEF,
+      openDM: function() { },
       getDMByName: function() {
         return { send: function() { } };
       }
