@@ -3,7 +3,7 @@
   "version": "0.0.9",
   "repository": "https://github.com/CharlieHess/slack-poker-bot",
   "scripts": {
-    "start": "node src/main.js"
+    "start": "src/main.js"
   },
   "license": "MIT",
   "devDependencies": {
