@@ -23,7 +23,6 @@ class TexasHoldem {
     this.players = players;
     this.scheduler = scheduler;
 
-    this.deck = new Deck();
     this.smallBlind = 1;
     this.bigBlind = this.smallBlind * 2;
     this.potManager = new PotManager(this.channel, players, this.smallBlind);
@@ -112,6 +111,7 @@ class TexasHoldem {
     this.playerHands = {};
 
     this.initializeHand();
+    this.deck = new Deck();
     this.deck.shuffle();
     this.dealPlayerCards();
 
