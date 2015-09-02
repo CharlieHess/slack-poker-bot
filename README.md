@@ -1,7 +1,8 @@
 ## Slack Poker Bot
 A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in any channel or private group with 2-10 players. PokerBot will deal hands, direct message players with their hole cards, query players (in order) for their action, determine the winning hand, and handle the pot.
 
-![](https://s3.amazonaws.com/f.cl.ly/items/1T1a021M3w0W0Y2b0n3Z/Image%202015-08-08%20at%205.45.31%20PM.png)
+![](https://s3.amazonaws.com/f.cl.ly/items/3w3k222T0A1o2e0d033Q/Image%202015-09-01%20at%2011.41.33%20PM.png)
+![](https://s3.amazonaws.com/f.cl.ly/items/2a073W0Q1Y2N0O2U1i3p/Image%202015-09-01%20at%2011.39.28%20PM.png)
 
 See it [in action](https://www.youtube.com/watch?v=Joku-PKUObE).
 
@@ -25,8 +26,8 @@ Click this button:
 1. Install [Heroku toolbelt](https://devcenter.heroku.com/articles/getting-started-with-nodejs#set-up)
 1. Create new bot integration (as above)
 1. `heroku create`
-1. 'heroku config:set SLACK_POKER_BOT_TOKEN=[Slack api integration token]'
-1. 'git push heroku master'
+1. `heroku config:set SLACK_POKER_BOT_TOKEN=[Slack api integration token]`
+1. `git push heroku master`
 
 ### But Can It Even?
 It can:
