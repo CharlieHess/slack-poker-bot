@@ -33,10 +33,10 @@ class PotManager {
       let index = this.pots.indexOf(this.currentPot);
       this.pots.splice(index, 1);
     }
-    
-    this.currentPot = { 
-      participants: participants, 
-      amount: amount 
+
+    this.currentPot = {
+      participants: participants,
+      amount: amount
     };
     
     this.pots.push(this.currentPot);
@@ -86,6 +86,12 @@ class PotManager {
       // Calls don't specify an amount, but they are a wager nonetheless.
       action.amount = this.currentBet;
       this.updateChipsAndPot(player, action);
+      break;
+    case 'all-in':
+      // All-in does not specify an amount, but wagers all of the player's chips.
+      let previousWager = player.lastAction ? player.lastAction.amount : 0;
+      action.amount = player.chips + previousWager;
+      this.currentBet = this.updateChipsAndPot(player, action);
       break;
     case 'bet':
     case 'raise':
