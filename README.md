@@ -1,5 +1,5 @@
 ## Slack Poker Bot
-A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in any channel or private group with 2-10 players. PokerBot will deal hands, direct message players with their hole cards, query players (in order) for their action, determine the winning hand, and handle the pot.
+A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in any channel or private group with 2-10 players. PokerBot will deal hands, direct message players with their hole cards, query players for their action, determine the winning hand, and handle the pot.
 
 ![](https://s3.amazonaws.com/f.cl.ly/items/3w3k222T0A1o2e0d033Q/Image%202015-09-01%20at%2011.41.33%20PM.png)
 ![](https://s3.amazonaws.com/f.cl.ly/items/2a073W0Q1Y2N0O2U1i3p/Image%202015-09-01%20at%2011.39.28%20PM.png)
@@ -8,26 +8,26 @@ See it [in action](https://www.youtube.com/watch?v=Joku-PKUObE).
 
 ### Getting Started
 1. Create a new [bot integration](https://my.slack.com/services/new/bot)
-1. Paste the API token from your integration into `main.js` _OR_
-1. Create a `token.txt` file and paste your API token there
-1. `npm install`
-1. `node src/main.js`
+1. Follow the steps to deploy the bot to Heroku or run it locally
 1. To start a game, `@<your_bot_name>: Deal`
 1. To end a game, `@<your_bot_name>: Quit game`
 
-#### Heroku
-
-##### For the lazy:
+#### One-Click Heroku
 Click this button:
 
 [![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
 
-##### Manually:
+##### Manual Heroku
 1. Install [Heroku toolbelt](https://devcenter.heroku.com/articles/getting-started-with-nodejs#set-up)
-1. Create new bot integration (as above)
+1. Create a new bot integration (as above)
 1. `heroku create`
-1. `heroku config:set SLACK_POKER_BOT_TOKEN=[Slack api integration token]`
+1. `heroku config:set SLACK_POKER_BOT_TOKEN=[Your API token]`
 1. `git push heroku master`
+
+#### To Run Locally
+1. Create a `token.txt` file and paste your API token there
+1. `npm install`
+1. `node src/main.js`
 
 ### But Can It Even?
 It can:
