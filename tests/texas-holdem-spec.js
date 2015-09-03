@@ -50,6 +50,25 @@ describe('TexasHoldem', function() {
     game.tableFormatter = "\n";
   });
   
+  it('should award the pot to an all-in player if everyone else folds', function() {
+    game.start(0);
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "Raise 200"});
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 1, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Fold"});
+    scheduler.advanceBy(5000);
+    
+    assert(players[4].chips === 203);
+  });
+  
   it('should handle multiple rounds with all-ins', function() {
     game.start(0);
     

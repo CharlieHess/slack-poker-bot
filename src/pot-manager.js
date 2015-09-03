@@ -203,10 +203,21 @@ class PotManager {
   //
   // Returns nothing
   endHand(result) {
-    this.currentPot.result = result;
-    this.handleOutcome(this.currentPot);
-    this.outcomes.push(result);
+    let outcome = [];
     
+    for (let pot of this.pots) {
+      if (pot.amount === 0) continue;
+      
+      pot.result = result;
+      this.handleOutcome(pot);
+      outcome.push(pot.result);
+    }
+    
+    if (outcome.length === 1) {
+      this.outcomes.push(outcome[0]);
+    } else {
+      this.outcomes.push(outcome);
+    }
     this.pots = [];
   }
   
