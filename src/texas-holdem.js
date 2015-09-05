@@ -28,25 +28,8 @@ class TexasHoldem {
     this.potManager = new PotManager(this.channel, players, this.smallBlind);
     this.gameEnded = new rx.Subject();
 
-    // Cache the direct message channels for each player as we'll be using
-    // them often, and fetching them takes linear time per number of users.
-    this.playerDms = {};
+    // Each player starts with 100 big blinds.
     for (let player of this.players) {
-      let dm = this.slack.getDMByName(player.name);
-      this.playerDms[player.id] = dm;
-      
-      // If a DM channel hasn't been opened yet, we need to open one first.
-      if (!dm || !dm.is_open) {
-        this.slack.openDM(player.id, result => {
-          if (result.ok) {
-            this.playerDms[player.id] = this.slack.getDMByName(player.name);
-          } else {
-            console.log(`Unable to open DM for ${player.name}: ${result.error}`);
-          }
-        });
-      }
-
-      // Each player starts with 100 big blinds.
       player.chips = this.bigBlind * 100;
     }
   }
