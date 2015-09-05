@@ -51,7 +51,7 @@ class PlayerInteraction {
 
     // Look for text that conforms to a player action.
     let playerAction = messages.where(e => e.user === player.id)
-      .map(e => PlayerInteraction.actionFromMessage(e.text, availableActions))
+      .map(e => PlayerInteraction.actionFromMessage(e.text, player, availableActions))
       .where(action => action !== null)
       .publish();
 
@@ -158,11 +158,12 @@ class PlayerInteraction {
   // Private: Parse player input into a valid action.
   //
   // text - The text that the player entered
+  // player - The player who is acting
   // availableActions - An array of the actions available to this player
   //
   // Returns an object representing the action, with keys for the name and
   // bet amount, or null if the input was invalid.
-  static actionFromMessage(text, availableActions) {
+  static actionFromMessage(text, player, availableActions) {
     if (!text) return null;
 
     let input = text.trim().toLowerCase().split(/\s+/);
@@ -194,6 +195,10 @@ class PlayerInteraction {
     case 'raise':
       name = 'raise';
       amount = input[1] ? parseInt(input[1]) : NaN;
+      break;
+    case 'allin':
+      name = availableActions[1];
+      amount = player.chips;
       break;
     default:
       return null;
