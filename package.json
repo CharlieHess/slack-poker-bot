@@ -9,7 +9,7 @@
   "devDependencies": {
     "chai": "^2.2.0",
     "gulp": "^3.8.11",
-    "gulp-mocha": "^2.0.1",
+    "gulp-mocha": "^2.1.3",
     "mocha": "^2.2.4"
   },
   "dependencies": {

@@ -197,8 +197,10 @@ class PlayerInteraction {
       amount = input[1] ? parseInt(input[1]) : NaN;
       break;
     case 'allin':
+      let previousWager = player.lastAction ? player.lastAction.amount : 0;
+      let availableChips = player.chips + previousWager;
       name = availableActions[1];
-      amount = player.chips;
+      amount = availableChips;
       break;
     default:
       return null;

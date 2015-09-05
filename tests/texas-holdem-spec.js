@@ -459,6 +459,42 @@ describe('TexasHoldem', function() {
     game.quit();
   });
 
+  it('should handle ALLIN command correctly', function() {
+    game.start(0);
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "call"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 1, text: "raise 20"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Fold"});
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "ALLIN"});
+    scheduler.advanceBy(5000);
+
+    assert(game.potManager.currentBet === 200);
+    assert(game.potManager.getTotalChips() === 223);
+    assert(players[3].chips === 0);
+    assert(players[3].isAllIn);
+
+    messages.onNext({user: 1, text: "Call"});
+    scheduler.advanceBy(5000);
+
+    var lastResult = game.potManager.outcomes.pop();
+    var winner = lastResult.winners[0];
+    assert(winner.id === 1 || winner.id === 4);
+
+    // Check that the losing player was eliminated, or that the pot was split.
+    assert(game.board.length === 0);
+    assert(game.getPlayersInHand().length === 4 || lastResult.isSplitPot);
+    game.quit();
+  });
+
   it('should handle split pots correctly', function() {
     game.start(0);
     scheduler.advanceBy(5000);
