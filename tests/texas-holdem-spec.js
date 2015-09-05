@@ -12,14 +12,7 @@ describe('TexasHoldem', function() {
   var slack, messages, channel, players, scheduler;
 
   beforeEach(function() {
-    slack = {
-      token: 0xDEADBEEF,
-      openDM: function() { },
-      getDMByName: function() {
-        return { send: function() { } };
-      }
-    };
-    
+    slack = { token: 0xDEADBEEF };
     messages = new rx.Subject();
     channel = {
       send: function(message) {
@@ -38,6 +31,8 @@ describe('TexasHoldem', function() {
     ];
 
     game = new TexasHoldem(slack, messages, channel, players, scheduler);
+    var emptyDm = { send: function() { /* no-op */ } };
+    game.playerDms = { 1: emptyDm, 2: emptyDm, 3: emptyDm, 4: emptyDm, 5: emptyDm };
 
     // We don't want to create any images during tests, so just have this
     // function write to the console.
