@@ -112,8 +112,8 @@ class Bot {
       });
     
     return SlackApiRx.openDms(this.slack, players)
-      .flatMap(playerDms => rx.Observable.timer(2000).map(() => playerDms))
-      .flatMap(playerDms => game.start(playerDms))
+      .flatMap(playerDms => rx.Observable.timer(2000)
+        .flatMap(() => game.start(playerDms)))
       .do(() => this.isGameRunning = false);
   }
 
