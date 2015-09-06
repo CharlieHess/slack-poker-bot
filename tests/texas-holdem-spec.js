@@ -8,8 +8,7 @@ var Card = require('../src/card');
 var TexasHoldem = require('../src/texas-holdem');
 
 describe('TexasHoldem', function() {
-  var game;
-  var slack, messages, channel, players, scheduler;
+  var game, slack, messages, channel, scheduler, players, playerDms;
 
   beforeEach(function() {
     slack = { token: 0xDEADBEEF };
@@ -32,7 +31,7 @@ describe('TexasHoldem', function() {
 
     game = new TexasHoldem(slack, messages, channel, players, scheduler);
     var emptyDm = { send: function() { /* no-op */ } };
-    game.playerDms = { 1: emptyDm, 2: emptyDm, 3: emptyDm, 4: emptyDm, 5: emptyDm };
+    playerDms = { 1: emptyDm, 2: emptyDm, 3: emptyDm, 4: emptyDm, 5: emptyDm };
 
     // We don't want to create any images during tests, so just have this
     // function write to the console.
@@ -46,7 +45,7 @@ describe('TexasHoldem', function() {
   });
   
   it('should award the pot to an all-in player if everyone else folds', function() {
-    game.start(0);
+    game.start(playerDms, 0);
     scheduler.advanceBy(5000);
 
     messages.onNext({user: 4, text: "Fold"});
@@ -65,7 +64,7 @@ describe('TexasHoldem', function() {
   });
   
   it('should handle multiple rounds with all-ins', function() {
-    game.start(0);
+    game.start(playerDms, 0);
     
     players[0].chips = 200;
     players[1].chips = 149;
@@ -154,7 +153,7 @@ describe('TexasHoldem', function() {
   });
   
   it('should handle multiple side pots and all-ins over the top (scenario 1)', function() {
-    game.start(0);
+    game.start(playerDms, 0);
     
     // Lots of short stacks this time around.
     players[0].chips = 200;
@@ -224,7 +223,7 @@ describe('TexasHoldem', function() {
   });
   
   it('should handle multiple side pots and all-ins over the top (scenario 2)', function() {
-    game.start(0);
+    game.start(playerDms, 0);
     
     players[1].chips = 149;
     players[2].chips = 73;
@@ -267,7 +266,7 @@ describe('TexasHoldem', function() {
   });
   
   it("should divide pots based on a player's stake", function() {
-    game.start(0);
+    game.start(playerDms, 0);
 
     // Give Chip a small stack for this test.
     players[4].chips = 50;
@@ -357,7 +356,7 @@ describe('TexasHoldem', function() {
   });
 
   it('should end the game when all players have been eliminated', function() {
-    game.start(0);
+    game.start(playerDms, 0);
     scheduler.advanceBy(5000);
 
     messages.onNext({user: 4, text: "Raise 200"});
@@ -377,7 +376,7 @@ describe('TexasHoldem', function() {
   });
 
   it('should handle default bets and raises', function() {
-    game.start(0);
+    game.start(playerDms, 0);
     scheduler.advanceBy(5000);
 
     messages.onNext({user: 4, text: "raise"});
@@ -419,7 +418,7 @@ describe('TexasHoldem', function() {
   });
 
   it('should handle all-ins correctly', function() {
-    game.start(0);
+    game.start(playerDms, 0);
     scheduler.advanceBy(5000);
 
     messages.onNext({user: 4, text: "call"});
@@ -455,7 +454,7 @@ describe('TexasHoldem', function() {
   });
 
   it('should handle split pots correctly', function() {
-    game.start(0);
+    game.start(playerDms, 0);
     scheduler.advanceBy(5000);
 
     messages.onNext({user: 4, text: "Call"});
@@ -511,7 +510,7 @@ describe('TexasHoldem', function() {
   });
 
   it('should assign a winner if everyone folds', function() {
-    game.start(0);
+    game.start(playerDms, 0);
     scheduler.advanceBy(5000);
 
     messages.onNext({user: 4, text: "Fold"});
@@ -530,7 +529,7 @@ describe('TexasHoldem', function() {
   });
 
   it('should handle consecutive raises correctly', function() {
-    game.start(0);
+    game.start(playerDms, 0);
     scheduler.advanceBy(5000);
 
     // A flurry of raises, starting with Patrik.
@@ -562,7 +561,7 @@ describe('TexasHoldem', function() {
   });
 
   it('should handle player timeout by folding, or if possible, checking', function() {
-    game.start(0);
+    game.start(playerDms, 0);
     scheduler.advanceBy(5000);
 
     // Patrik is UTG and is going to timeout.
@@ -596,7 +595,7 @@ describe('TexasHoldem', function() {
 
   it('should handle a complex hand correctly', function() {
     // Start with Phil Ivey (index 0) as dealer.
-    game.start(0);
+    game.start(playerDms, 0);
     scheduler.advanceBy(5000);
 
     // Doyle is SB, Stu is BB, Patrik is UTG.

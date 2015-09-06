@@ -36,14 +36,17 @@ class TexasHoldem {
 
   // Public: Starts a new game.
   //
+  // playerDms - A hash mapping player ID to their DM channel, used to inform
+  //             players of their pocket cards.
   // dealerButton - (Optional) The initial index of the dealer button, or null
   //                to have it randomly assigned
   // timeBetweenHands - (Optional) The time, in milliseconds, to pause between
   //                    the end of one hand and the start of another
   //
   // Returns an {Observable} that signals completion of the game
-  start(dealerButton=null, timeBetweenHands=5000) {
+  start(playerDms, dealerButton=null, timeBetweenHands=5000) {
     this.isRunning = true;
+    this.playerDms = playerDms;
     this.dealerButton = dealerButton === null ?
       Math.floor(Math.random() * this.players.length) :
       dealerButton;
