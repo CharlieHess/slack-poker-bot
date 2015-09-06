@@ -2,6 +2,7 @@ const rx = require('rx');
 const _ = require('underscore-plus');
 
 const Slack = require('slack-client');
+const SlackApiRx = require('./slack-api-rx');
 const TexasHoldem = require('./texas-holdem');
 const MessageHelpers = require('./message-helpers');
 const PlayerInteraction = require('./player-interaction');
@@ -110,8 +111,9 @@ class Bot {
         game.quit();
       });
     
-    return rx.Observable.timer(3000)
-      .flatMap(() => game.start())
+    return SlackApiRx.openDms(this.slack, players)
+      .flatMap(playerDms => rx.Observable.timer(2000)
+        .flatMap(() => game.start(playerDms)))
       .do(() => this.isGameRunning = false);
   }
 

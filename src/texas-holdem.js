@@ -28,39 +28,25 @@ class TexasHoldem {
     this.potManager = new PotManager(this.channel, players, this.smallBlind);
     this.gameEnded = new rx.Subject();
 
-    // Cache the direct message channels for each player as we'll be using
-    // them often, and fetching them takes linear time per number of users.
-    this.playerDms = {};
+    // Each player starts with 100 big blinds.
     for (let player of this.players) {
-      let dm = this.slack.getDMByName(player.name);
-      this.playerDms[player.id] = dm;
-      
-      // If a DM channel hasn't been opened yet, we need to open one first.
-      if (!dm || !dm.is_open) {
-        this.slack.openDM(player.id, result => {
-          if (result.ok) {
-            this.playerDms[player.id] = this.slack.getDMByName(player.name);
-          } else {
-            console.log(`Unable to open DM for ${player.name}: ${result.error}`);
-          }
-        });
-      }
-
-      // Each player starts with 100 big blinds.
       player.chips = this.bigBlind * 100;
     }
   }
 
   // Public: Starts a new game.
   //
+  // playerDms - A hash mapping player ID to their DM channel, used to inform
+  //             players of their pocket cards.
   // dealerButton - (Optional) The initial index of the dealer button, or null
   //                to have it randomly assigned
   // timeBetweenHands - (Optional) The time, in milliseconds, to pause between
   //                    the end of one hand and the start of another
   //
   // Returns an {Observable} that signals completion of the game
-  start(dealerButton=null, timeBetweenHands=5000) {
+  start(playerDms, dealerButton=null, timeBetweenHands=5000) {
     this.isRunning = true;
+    this.playerDms = playerDms;
     this.dealerButton = dealerButton === null ?
       Math.floor(Math.random() * this.players.length) :
       dealerButton;
