@@ -141,7 +141,7 @@ class Bot {
     _.extend(game, this.gameConfig);
 
     // Listen for messages directed at the bot containing 'quit game.'
-    messages.where(e => MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
+    let quitGameDisp = messages.where(e => MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
       e.text.toLowerCase().match(/quit game/))
       .take(1)
       .subscribe(e => {
@@ -154,7 +154,10 @@ class Bot {
     return SlackApiRx.openDms(this.slack, players)
       .flatMap(playerDms => rx.Observable.timer(2000)
         .flatMap(() => game.start(playerDms)))
-      .do(() => this.isGameRunning = false);
+      .do(() => {
+        quitGameDisp.dispose();
+        this.isGameRunning = false;
+      });
   }
 
   // Private: Adds AI-based players (primarily for testing purposes).
