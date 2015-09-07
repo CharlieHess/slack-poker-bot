@@ -207,9 +207,9 @@ class TexasHoldem {
     this.onPlayerAction(bbPlayer, bbAction, previousActions, null, 'big blind');
 
     // So, in the preflop round we want to treat the big blind as the
-    // bettor. Because the bet was implict, that player also has an "option,"
-    // i.e., they will be the last to act.
-    bbPlayer.hasOption = true;
+    // bettor. Because the bet was implicit, that player also has an option,
+    // i.e., they will be the last to act (as long as they have chips).
+    bbPlayer.hasOption = bbPlayer.chips > 0;
   }
 
   // Private: Displays player position and who's next to act, pauses briefly,

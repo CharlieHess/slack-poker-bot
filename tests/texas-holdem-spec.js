@@ -44,6 +44,36 @@ describe('TexasHoldem', function() {
     game.tableFormatter = "\n";
   });
   
+  it('should handle players who are forced all-in by posting blinds', function() {
+    game.start(playerDms, 0);
+    
+    // Sad Patrik.
+    players[3].chips = 2;
+    scheduler.advanceBy(5000);
+
+    messages.onNext({user: 4, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 5, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 1, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Fold"});
+    scheduler.advanceBy(10000);
+    
+    messages.onNext({user: 5, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 1, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 2, text: "Fold"});
+    scheduler.advanceBy(5000);
+    messages.onNext({user: 3, text: "Call"});
+    scheduler.advanceBy(5000);
+    
+    // Patrik either doubled up (2 * 2 = 4, minus the SB = 3), or lost it all.
+    assert(game.potManager.outcomes.length === 2);
+    assert(players[3].chips === 3 || players[3].chips === 0);
+  });
+  
   it('should award the pot to an all-in player if everyone else folds', function() {
     game.start(playerDms, 0);
     scheduler.advanceBy(5000);
