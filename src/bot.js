@@ -86,7 +86,7 @@ class Bot {
         let channel = this.slack.getChannelGroupOrDMByID(e.channel);
         
         e.text.replace(/(\w*)=(\d*)/g, (match, key, value) => {
-          if (this.gameConfigParams.indexOf(key) > -1) {
+          if (this.gameConfigParams.indexOf(key) > -1 && value) {
             this.gameConfig[key] = value;
             channel.send(`Game ${key} has been set to ${value}.`);
           }
