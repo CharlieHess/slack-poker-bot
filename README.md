@@ -34,7 +34,8 @@ Click this button:
 Note that any player can end a game at any time with this command, so Be Honorable™.
 * To configure some bot options, `@<your-bot-name>: config <name-of-option>=<value>`. The supported options are:
 ```
-timeout: Sets the duration (in seconds) before a player times out. Set to 0 to specify no timeout.
+timeout: Sets the duration (in seconds) before a player times out. 
+Set to 0 to specify no timeout.
 ```
 So, to start a game without any player timeout, say:
 ```
