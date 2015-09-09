@@ -236,7 +236,7 @@ class TexasHoldem {
         this.actingPlayer = player;
 
         return PlayerInteraction.getActionForPlayer(this.messages, this.channel,
-          player, previousActions, this.scheduler)
+          player, previousActions, this.scheduler, this.timeout)
           .do(action => this.onPlayerAction(player, action, previousActions, roundEnded));
         });
     });

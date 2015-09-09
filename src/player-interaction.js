@@ -15,7 +15,7 @@ class PlayerInteraction {
   // `onCompleted` when time expires or the max number of players join.
   static pollPotentialPlayers(messages, channel, scheduler=rx.Scheduler.timeout, timeout=30, maxPlayers=10) {
     let formatMessage = t => `Who wants to play? Respond with 'yes' in this channel in the next ${t} seconds.`;
-    let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, formatMessage, scheduler, timeout);
+    let timeExpired = PlayerInteraction.postMessageWithTimeout(channel, formatMessage, scheduler, timeout);
 
     // Look for messages containing the word 'yes' and map them to a unique
     // user ID, constrained to `maxPlayers` number of players.
@@ -47,7 +47,17 @@ class PlayerInteraction {
     scheduler=rx.Scheduler.timeout, timeout=30) {
     let availableActions = PlayerInteraction.getAvailableActions(player, previousActions);
     let formatMessage = t => PlayerInteraction.buildActionMessage(player, availableActions, t);
-    let {timeExpired} = PlayerInteraction.postMessageWithTimeout(channel, formatMessage, scheduler, timeout);
+    
+    let timeExpired = null;
+    let expiredDisp = null;
+    if (timeout > 0) {
+      timeExpired = PlayerInteraction.postMessageWithTimeout(channel, formatMessage, scheduler, timeout);
+      expiredDisp = timeExpired.connect();
+    } else {
+      channel.send(formatMessage(0));
+      timeExpired = rx.Observable.never();
+      expiredDisp = rx.Disposable.empty;
+    }
 
     // Look for text that conforms to a player action.
     let playerAction = messages.where(e => e.user === player.id)
@@ -56,8 +66,7 @@ class PlayerInteraction {
       .publish();
 
     playerAction.connect();
-    let disp = timeExpired.connect();
-
+    
     // If the user times out, they will be auto-folded unless they can check.
     let actionForTimeout = timeExpired.map(() =>
       availableActions.indexOf('check') > -1 ?
@@ -72,7 +81,7 @@ class PlayerInteraction {
     // action (only applicable to bots).
     return rx.Observable.merge(playerAction, actionForTimeout, botAction)
       .take(1)
-      .do(() => disp.dispose());
+      .do(() => expiredDisp.dispose());
   }
 
   // Private: Posts a message to the channel with some timeout, that edits
@@ -84,9 +93,7 @@ class PlayerInteraction {
   // scheduler - The scheduler to use for timing events
   // timeout - The duration of the message, in seconds
   //
-  // Returns an object with two keys: `timeExpired`, an {Observable} sequence
-  // that fires when the message expires, and `message`, the message posted to
-  // the channel.
+  // Returns an {Observable} sequence that signals expiration of the message
   static postMessageWithTimeout(channel, formatMessage, scheduler, timeout) {
     let timeoutMessage = channel.send(formatMessage(timeout));
 
@@ -95,7 +102,7 @@ class PlayerInteraction {
       .do((x) => timeoutMessage.updateMessage(formatMessage(`${timeout - x}`)))
       .publishLast();
 
-    return {timeExpired: timeExpired, message: timeoutMessage};
+    return timeExpired;
   }
 
   // Private: Builds up a formatted countdown message containing the available
@@ -107,11 +114,15 @@ class PlayerInteraction {
   //
   // Returns the formatted string
   static buildActionMessage(player, availableActions, timeRemaining) {
-    let message = `${player.name}, it's your turn. Respond with\n`;
+    let message = `${player.name}, it's your turn. Respond with:\n`;
     for (let action of availableActions) {
       message += `*(${action.charAt(0).toUpperCase()})${action.slice(1)}*\t`;
     }
-    message += `\nin the next ${timeRemaining} seconds.`;
+    
+    if (timeRemaining > 0) {
+      message += `\nin the next ${timeRemaining} seconds.`;
+    }
+    
     return message;
   }
 
