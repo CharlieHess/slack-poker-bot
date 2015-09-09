@@ -30,15 +30,15 @@ class ImageHelpers {
     let makeImage = null;
     switch (cards.length) {
     case 3:
-      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.jpeg');
+      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.png');
       break;
     case 4:
-      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.jpeg')
-        .then((outputFile) => ImageHelpers.combineTwo([outputFile, imageFiles[3]], './output/turn.jpeg'));
+      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.png')
+        .then((outputFile) => ImageHelpers.combineTwo([outputFile, imageFiles[3]], './output/turn.png'));
       break;
     case 5:
-      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.jpeg')
-        .then((outputFile) => ImageHelpers.combineThree([outputFile, imageFiles[3], imageFiles[4]], './output/river.jpeg'));
+      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.png')
+        .then((outputFile) => ImageHelpers.combineThree([outputFile, imageFiles[3], imageFiles[4]], './output/river.png'));
       break;
     default:
       throw new Error(`Attempted to make board image for ${cards.length} cards.`);
@@ -132,10 +132,10 @@ class ImageHelpers {
   //
   // img - The image to convert
   //
-  // Returns a {Promise} of the {Buffer}, encoded as a jpeg
+  // Returns a {Promise} of the {Buffer}, encoded as a png
   static toBuffer(img) {
     return new Promise((resolve, reject) => {
-      img.toBuffer('jpg', {quality: 100}, (err, buffer) => {
+      img.toBuffer('png', (err, buffer) => {
         if (!err) {
           resolve(buffer);
         } else {
