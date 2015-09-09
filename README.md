@@ -6,7 +6,7 @@ A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in a
 
 See it [in action](https://www.youtube.com/watch?v=Joku-PKUObE).
 
-### Getting Started
+## Getting Started
 1. Create a new [bot integration](https://my.slack.com/services/new/bot)
 1. Follow the steps to deploy the bot to Heroku or run it locally
 1. Once the bot is running, start a game with: `@<your-bot-name>: deal`
@@ -16,7 +16,7 @@ Click this button:
 
 [![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy)
 
-##### Manual Heroku
+#### Manual Heroku
 1. Install [Heroku toolbelt](https://devcenter.heroku.com/articles/getting-started-with-nodejs#set-up)
 1. Create a new bot integration (as above)
 1. `heroku create`
