@@ -1,4 +1,5 @@
-## Slack Poker Bot
+## Slack Poker Bot [![Build Status](https://travis-ci.org/CharlieHess/slack-poker-bot.png)](https://travis-ci.org/CharlieHess/slack-poker-bot)
+
 A bot that turns Slack into a legitimate Texas Hold'em client. Start a game in any channel or private group with 2-10 players. PokerBot will deal hands, direct message players with their hole cards, query players for their action, determine the winning hand, and handle the pot.
 
 ![](https://s3.amazonaws.com/f.cl.ly/items/3w3k222T0A1o2e0d033Q/Image%202015-09-01%20at%2011.41.33%20PM.png)
@@ -57,7 +58,7 @@ To run tests, simply do:
 
 1. `gulp`
 
-The tests produce legible output that matches what users in Slack would see. This is very helpful when diagnosing a logic bug:
+The tests produce legible output that matches what users in Slack would see. This is the same test suite that is run on each pull request. This is very helpful when diagnosing a logic bug:
 ![](https://s3.amazonaws.com/f.cl.ly/items/2L0Y2Y3d3g0i1x171n2V/Image%202015-09-08%20at%207.00.40%20PM.png)
 
 ### Dependencies
