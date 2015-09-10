@@ -118,7 +118,7 @@ class ImageHelpers {
   // Returns a {Promise} indicating completion
   static writeFile(img, outputFile) {
     return new Promise((resolve, reject) => {
-      img.writeFile(outputFile, 'png', {compression: 'high'}, (err) => {
+      img.writeFile(outputFile, 'png', {compression: 'fast'}, (err) => {
         if (!err) {
           resolve(outputFile);
         } else {
