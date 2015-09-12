@@ -21,7 +21,7 @@ class ImageHelpers {
   // image, or `onError` if anything goes wrong
   static createBoardImage(cards, upload=imgur.uploadFile) {
     let subj = new rx.AsyncSubject();
-    let imageFiles = cards.map((c) => `resources/${c.toAsciiString()}.jpeg`);
+    let imageFiles = cards.map((c) => `resources/${c.toAsciiString()}.png`);
 
     if (!fs.existsSync('./output')) {
       fs.mkdirSync('./output');
@@ -30,15 +30,15 @@ class ImageHelpers {
     let makeImage = null;
     switch (cards.length) {
     case 3:
-      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.jpeg');
+      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.png');
       break;
     case 4:
-      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.jpeg')
-        .then((outputFile) => ImageHelpers.combineTwo([outputFile, imageFiles[3]], './output/turn.jpeg'));
+      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.png')
+        .then((outputFile) => ImageHelpers.combineTwo([outputFile, imageFiles[3]], './output/turn.png'));
       break;
     case 5:
-      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.jpeg')
-        .then((outputFile) => ImageHelpers.combineThree([outputFile, imageFiles[3], imageFiles[4]], './output/river.jpeg'));
+      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.png')
+        .then((outputFile) => ImageHelpers.combineThree([outputFile, imageFiles[3], imageFiles[4]], './output/river.png'));
       break;
     default:
       throw new Error(`Attempted to make board image for ${cards.length} cards.`);
@@ -118,7 +118,7 @@ class ImageHelpers {
   // Returns a {Promise} indicating completion
   static writeFile(img, outputFile) {
     return new Promise((resolve, reject) => {
-      img.writeFile(outputFile, (err) => {
+      img.writeFile(outputFile, 'png', {compression: 'fast'}, (err) => {
         if (!err) {
           resolve(outputFile);
         } else {
