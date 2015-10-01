@@ -3,6 +3,7 @@ const _ = require('underscore-plus');
 
 const Deck = require('./deck');
 const PotManager = require('./pot-manager');
+const SlackApiRx = require('./slack-api-rx');
 const PlayerOrder = require('./player-order');
 const PlayerStatus = require('./player-status');
 const ImageHelpers = require('./image-helpers');
@@ -486,7 +487,14 @@ class TexasHoldem {
 
       if (!player.isBot) {
         let dm = this.playerDms[player.id];
-        dm.send(`Your hand is: ${this.playerHands[player.id]}`);
+        if (!dm) {
+          SlackApiRx.getOrOpenDm.subscribe(({dm}) => {
+            this.playerDms[player.id] = dm;
+            dm.send(`Your hand is: ${this.playerHands[player.id]}`);
+          });
+        } else {
+          dm.send(`Your hand is: ${this.playerHands[player.id]}`);
+        }
       } else {
         player.holeCards = this.playerHands[player.id];
       }
