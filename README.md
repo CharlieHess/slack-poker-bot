@@ -69,7 +69,7 @@ The tests produce legible output that matches what users in Slack would see. Thi
 The majority of this client is written using `RxJS`. It simplifies many of the complex player polling interactions, that would otherwise be Death By Timers, into very legible code.
 
 * [Imgur](https://github.com/kaimallea/node-imgur) / [Lightweight Image Processor](https://github.com/EyalAr/lwip)
-Each card is a separate image, and board images are created on the fly by pasting several cards onto a single canvas (with the help of  `lwip`). The resulting image is than uploaded to `imgur`, which gives us a single URL that can be passed as an attachment to the Slack API. This route was chosen to avoid uploading 311,875,200 images to the cloud, and allows us to modify the card assets easily.
+Each card is a separate image, and board images are created on the fly by pasting several cards onto a single canvas (with the help of  `lwip`). The resulting image is than uploaded to `imgur`, which gives us a single URL that can be passed as an attachment to the Slack API. This route was chosen to avoid uploading 318,505,200 images to the cloud, and allows us to modify the card assets easily.
 
 * [Poker Evaluator](https://github.com/chenosaurus/poker-evaluator)
 `poker-evaluator` is used for evaluating the winning hand when it comes time to show down. Here it has been extended to calculate the best 5-card hand from any 7-card hand.

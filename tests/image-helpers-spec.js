@@ -32,7 +32,7 @@ describe('ImageHelpers', function() {
 
       ImageHelpers.createBoardImage([nineClubs, fourSpades, kingDiamonds], mockUpload)
         .subscribe(function() {
-          lwip.open('./output/flop.jpeg', function(err, img) {
+          lwip.open('./output/flop.png', function(err, img) {
             assert(img.width() === cardSize.width * 3);
             assert(img.height() === cardSize.height);
           });
@@ -40,7 +40,7 @@ describe('ImageHelpers', function() {
 
       ImageHelpers.createBoardImage([nineClubs, fourSpades, kingDiamonds, aceHearts], mockUpload)
         .subscribe(function() {
-          lwip.open('./output/turn.jpeg', function(err, img) {
+          lwip.open('./output/turn.png', function(err, img) {
             assert(img.width() === cardSize.width * 4);
             assert(img.height() === cardSize.height);
           });
@@ -48,7 +48,7 @@ describe('ImageHelpers', function() {
 
       ImageHelpers.createBoardImage([nineClubs, fourSpades, kingDiamonds, aceHearts, sevenSpades], mockUpload)
         .subscribe(function() {
-          lwip.open('./output/river.jpeg', function(err, img) {
+          lwip.open('./output/river.png', function(err, img) {
             assert(img.width() === cardSize.width * 5);
             assert(img.height() === cardSize.height);
             done();
