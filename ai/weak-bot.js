@@ -16,7 +16,9 @@ class WeakBot {
     let action = availableActions.indexOf('check') > -1 ?
       { name: 'check' } :
       { name: 'call' };
+      
     let delay = 2000 + (Math.random() * 4000);
-    return rx.Observable.timer(delay).map(() => action);
+    return rx.Observable.timer(delay)
+      .flatMap(() => rx.Observable.return(action));
   }
 };

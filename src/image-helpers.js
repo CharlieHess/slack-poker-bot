@@ -27,22 +27,18 @@ class ImageHelpers {
       fs.mkdirSync('./output');
     }
 
-    // NB: The turn and river depend on the existence of the previous board
-    // image. In practice this will always be the case (you can't have a turn
-    // without a flop), but in testing be careful to follow that order.
-    //
-    // Also note that these images will always overwrite one another, e.g., we
-    // are not identifying them uniquely.
     let makeImage = null;
     switch (cards.length) {
     case 3:
       makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.jpeg');
       break;
     case 4:
-      makeImage = ImageHelpers.combineTwo(['./output/flop.jpeg', imageFiles[3]], './output/turn.jpeg');
+      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.jpeg')
+        .then((outputFile) => ImageHelpers.combineTwo([outputFile, imageFiles[3]], './output/turn.jpeg'));
       break;
     case 5:
-      makeImage = ImageHelpers.combineTwo(['./output/turn.jpeg', imageFiles[4]], './output/river.jpeg');
+      makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.jpeg')
+        .then((outputFile) => ImageHelpers.combineThree([outputFile, imageFiles[3], imageFiles[4]], './output/river.jpeg'));
       break;
     default:
       throw new Error(`Attempted to make board image for ${cards.length} cards.`);
