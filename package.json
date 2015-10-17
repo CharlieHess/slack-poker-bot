@@ -1,9 +1,13 @@
 {
   "name": "slack-poker-bot",
-  "version": "0.0.95",
+  "version": "1.0.0",
+  "engines": {
+    "node": "0.12.7"
+  }, 
   "repository": "https://github.com/CharlieHess/slack-poker-bot",
   "scripts": {
-    "start": "node src/main.js"
+    "start": "node src/main.js",
+    "test": "gulp"
   },
   "license": "MIT",
   "devDependencies": {
