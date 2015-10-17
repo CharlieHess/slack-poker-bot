@@ -2,6 +2,7 @@ const rx = require('rx');
 const _ = require('underscore-plus');
 
 const Slack = require('slack-client');
+const SlackApiRx = require('./slack-api-rx');
 const TexasHoldem = require('./texas-holdem');
 const MessageHelpers = require('./message-helpers');
 const PlayerInteraction = require('./player-interaction');
@@ -15,6 +16,9 @@ class Bot {
   // token - An API token from the bot integration
   constructor(token) {
     this.slack = new Slack(token, true, true);
+    
+    this.gameConfig = {};
+    this.gameConfigParams = ['timeout'];
   }
 
   // Public: Brings this bot online and starts handling messages sent to it.
@@ -23,23 +27,38 @@ class Bot {
       .subscribe(() => this.onClientOpened());
 
     this.slack.login();
-    this.respondToDealMessages();
+    this.respondToMessages();
   }
 
   // Private: Listens for messages directed at this bot that contain the word
   // 'deal,' and poll players in response.
   //
   // Returns a {Disposable} that will end this subscription
-  respondToDealMessages() {
+  respondToMessages() {
     let messages = rx.Observable.fromEvent(this.slack, 'message')
       .where(e => e.type === 'message');
 
-    // Messages directed at the bot that contain the word "deal" are valid
-    let dealGameMessages = messages.where(e =>
-      MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
-        e.text.toLowerCase().match(/\bdeal\b/));
+    let atMentions = messages.where(e => 
+      MessageHelpers.containsUserMention(e.text, this.slack.self.id));
+
+    let disp = new rx.CompositeDisposable();
         
-    return dealGameMessages
+    disp.add(this.handleDealGameMessages(messages, atMentions));
+    disp.add(this.handleConfigMessages(atMentions));
+    
+    return disp;
+  }
+  
+  // Private: Looks for messages directed at the bot that contain the word
+  // "deal." When found, start polling players for a game.
+  //
+  // messages - An {Observable} representing messages posted to a channel
+  // atMentions - An {Observable} representing messages directed at the bot
+  //
+  // Returns a {Disposable} that will end this subscription
+  handleDealGameMessages(messages, atMentions) {
+    return atMentions
+      .where(e => e.text && e.text.toLowerCase().match(/\bdeal\b/))
       .map(e => this.slack.getChannelGroupOrDMByID(e.channel))
       .where(channel => {
         if (this.isPolling) {
@@ -52,6 +71,27 @@ class Bot {
       })
       .flatMap(channel => this.pollPlayersForGame(messages, channel))
       .subscribe();
+  }
+  
+  // Private: Looks for messages directed at the bot that contain the word
+  // "config" and have valid parameters. When found, set the parameter.
+  //
+  // atMentions - An {Observable} representing messages directed at the bot
+  //
+  // Returns a {Disposable} that will end this subscription
+  handleConfigMessages(atMentions) {
+    return atMentions
+      .where(e => e.text && e.text.toLowerCase().includes('config'))
+      .subscribe(e => {
+        let channel = this.slack.getChannelGroupOrDMByID(e.channel);
+        
+        e.text.replace(/(\w*)=(\d*)/g, (match, key, value) => {
+          if (this.gameConfigParams.indexOf(key) > -1 && value) {
+            this.gameConfig[key] = value;
+            channel.send(`Game ${key} has been set to ${value}.`);
+          }
+        });
+      });
   }
   
   // Private: Polls players to join the game, and if we have enough, starts an
@@ -98,9 +138,10 @@ class Bot {
     this.isGameRunning = true;
     
     let game = new TexasHoldem(this.slack, messages, channel, players);
+    _.extend(game, this.gameConfig);
 
     // Listen for messages directed at the bot containing 'quit game.'
-    messages.where(e => MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
+    let quitGameDisp = messages.where(e => MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
       e.text.toLowerCase().match(/quit game/))
       .take(1)
       .subscribe(e => {
@@ -110,20 +151,24 @@ class Bot {
         game.quit();
       });
     
-    return rx.Observable.timer(3000)
-      .flatMap(() => game.start())
-      .do(() => this.isGameRunning = false);
+    return SlackApiRx.openDms(this.slack, players)
+      .flatMap(playerDms => rx.Observable.timer(2000)
+        .flatMap(() => game.start(playerDms)))
+      .do(() => {
+        quitGameDisp.dispose();
+        this.isGameRunning = false;
+      });
   }
 
   // Private: Adds AI-based players (primarily for testing purposes).
   //
   // players - The players participating in the game
   addBotPlayers(players) {
-    // let bot1 = new WeakBot('Phil Hellmuth');
-    // let bot2 = new AggroBot('Phil Ivey');
-    // 
-    // players.push(bot1);
-    // players.push(bot2);
+    //let bot1 = new WeakBot('Phil Hellmuth');
+    //players.push(bot1);
+    
+    //let bot2 = new AggroBot('Phil Ivey');
+    //players.push(bot2);
   }
 
   // Private: Save which channels and groups this bot is in and log them.

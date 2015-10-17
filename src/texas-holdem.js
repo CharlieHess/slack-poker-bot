@@ -3,6 +3,7 @@ const _ = require('underscore-plus');
 
 const Deck = require('./deck');
 const PotManager = require('./pot-manager');
+const SlackApiRx = require('./slack-api-rx');
 const PlayerOrder = require('./player-order');
 const PlayerStatus = require('./player-status');
 const ImageHelpers = require('./image-helpers');
@@ -28,39 +29,25 @@ class TexasHoldem {
     this.potManager = new PotManager(this.channel, players, this.smallBlind);
     this.gameEnded = new rx.Subject();
 
-    // Cache the direct message channels for each player as we'll be using
-    // them often, and fetching them takes linear time per number of users.
-    this.playerDms = {};
+    // Each player starts with 100 big blinds.
     for (let player of this.players) {
-      let dm = this.slack.getDMByName(player.name);
-      this.playerDms[player.id] = dm;
-      
-      // If a DM channel hasn't been opened yet, we need to open one first.
-      if (!dm || !dm.is_open) {
-        this.slack.openDM(player.id, result => {
-          if (result.ok) {
-            this.playerDms[player.id] = this.slack.getDMByName(player.name);
-          } else {
-            console.log(`Unable to open DM for ${player.name}: ${result.error}`);
-          }
-        });
-      }
-
-      // Each player starts with 100 big blinds.
       player.chips = this.bigBlind * 100;
     }
   }
 
   // Public: Starts a new game.
   //
+  // playerDms - A hash mapping player ID to their DM channel, used to inform
+  //             players of their pocket cards.
   // dealerButton - (Optional) The initial index of the dealer button, or null
   //                to have it randomly assigned
   // timeBetweenHands - (Optional) The time, in milliseconds, to pause between
   //                    the end of one hand and the start of another
   //
   // Returns an {Observable} that signals completion of the game
-  start(dealerButton=null, timeBetweenHands=5000) {
+  start(playerDms, dealerButton=null, timeBetweenHands=5000) {
     this.isRunning = true;
+    this.playerDms = playerDms;
     this.dealerButton = dealerButton === null ?
       Math.floor(Math.random() * this.players.length) :
       dealerButton;
@@ -221,9 +208,9 @@ class TexasHoldem {
     this.onPlayerAction(bbPlayer, bbAction, previousActions, null, 'big blind');
 
     // So, in the preflop round we want to treat the big blind as the
-    // bettor. Because the bet was implict, that player also has an "option,"
-    // i.e., they will be the last to act.
-    bbPlayer.hasOption = true;
+    // bettor. Because the bet was implicit, that player also has an option,
+    // i.e., they will be the last to act (as long as they have chips).
+    bbPlayer.hasOption = bbPlayer.chips > 0;
   }
 
   // Private: Displays player position and who's next to act, pauses briefly,
@@ -250,7 +237,7 @@ class TexasHoldem {
         this.actingPlayer = player;
 
         return PlayerInteraction.getActionForPlayer(this.messages, this.channel,
-          player, previousActions, this.scheduler)
+          player, previousActions, this.scheduler, this.timeout)
           .do(action => this.onPlayerAction(player, action, previousActions, roundEnded));
         });
     });
@@ -500,7 +487,14 @@ class TexasHoldem {
 
       if (!player.isBot) {
         let dm = this.playerDms[player.id];
-        dm.send(`Your hand is: ${this.playerHands[player.id]}`);
+        if (!dm) {
+          SlackApiRx.getOrOpenDm.subscribe(({dm}) => {
+            this.playerDms[player.id] = dm;
+            dm.send(`Your hand is: ${this.playerHands[player.id]}`);
+          });
+        } else {
+          dm.send(`Your hand is: ${this.playerHands[player.id]}`);
+        }
       } else {
         player.holeCards = this.playerHands[player.id];
       }
