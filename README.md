@@ -61,6 +61,9 @@ To run tests, simply do:
 The tests produce legible output that matches what users in Slack would see. This is the same test suite that is run on each pull request. This is very helpful when diagnosing a logic bug:
 ![](https://s3.amazonaws.com/f.cl.ly/items/2L0Y2Y3d3g0i1x171n2V/Image%202015-09-08%20at%207.00.40%20PM.png)
 
+### Languages
+* [Korean version](https://github.com/sinwoobang/slack-poker-bot)
+
 ### Dependencies
 * [NodeJS Slack Client](https://github.com/slackhq/node-slack-client)
 `node-slack-client` abstracts the basics of a Slack bot, including authentication, getting messages from players, and posting messages or attachments to the channel.
