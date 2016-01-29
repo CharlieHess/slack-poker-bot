@@ -1,4 +1,4 @@
-const _ = require('underscore-plus');
+const _ = require('lodash');
 
 module.exports = class PlayerOrder {
 

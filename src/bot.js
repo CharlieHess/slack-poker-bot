@@ -1,5 +1,5 @@
 const rx = require('rx');
-const _ = require('underscore-plus');
+const _ = require('lodash');
 
 const Slack = require('slack-client');
 const SlackApiRx = require('./slack-api-rx');
@@ -59,17 +59,17 @@ class Bot {
   handleDealGameMessages(messages, atMentions) {
     return atMentions
       .where(e => e.text && e.text.toLowerCase().match(/\bdeal\b/))
-      .map(e => this.slack.getChannelGroupOrDMByID(e.channel))
-      .where(channel => {
+      .map(e => ({ channel: this.slack.getChannelGroupOrDMByID(e.channel), initiator: e.user }))
+      .where(starter => {
         if (this.isPolling) {
           return false;
         } else if (this.isGameRunning) {
-          channel.send('Another game is in progress, quit that first.');
+          starter.channel.send('Another game is in progress, quit that first.');
           return false;
         }
         return true;
       })
-      .flatMap(channel => this.pollPlayersForGame(messages, channel))
+      .flatMap(starter => this.pollPlayersForGame(messages, starter.channel, starter.initiator))
       .subscribe();
   }
   
@@ -101,13 +101,14 @@ class Bot {
   // channel - The channel where the deal message was posted
   //
   // Returns an {Observable} that signals completion of the game 
-  pollPlayersForGame(messages, channel) {
+  pollPlayersForGame(messages, channel, initiator) {
     this.isPolling = true;
 
     return PlayerInteraction.pollPotentialPlayers(messages, channel)
+      .shareValue(initiator)
       .reduce((players, id) => {
         let user = this.slack.getUserByID(id);
-        channel.send(`${user.name} has joined the game.`);
+        channel.send(`${MessageHelpers.formatAtUser(user)} has joined the game.`);
         
         players.push({id: user.id, name: user.name});
         return players;
@@ -142,7 +143,7 @@ class Bot {
 
     // Listen for messages directed at the bot containing 'quit game.'
     let quitGameDisp = messages.where(e => MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
-      e.text.toLowerCase().match(/quit game/))
+      e.text.toLowerCase().match(/\bquit\b/))
       .take(1)
       .subscribe(e => {
         // TODO: Should poll players to make sure they all want to quit.

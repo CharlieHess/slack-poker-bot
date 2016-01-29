@@ -1,5 +1,5 @@
 const rx = require('rx');
-const _ = require('underscore-plus');
+const _ = require('lodash');
 
 class PlayerInteraction {
   // Public: Poll players that want to join the game during a specified period

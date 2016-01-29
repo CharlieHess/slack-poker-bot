@@ -1,6 +1,6 @@
 require('babel/register');
 
-var _ = require('underscore-plus');
+var _ = require('lodash');
 var assert = require('chai').assert;
 
 var Deck = require('../src/deck');

@@ -5,6 +5,10 @@ class MessageHelpers {
     let userTag = `<@${userId}>`;
     return messageText && messageText.startsWith(userTag);
   }
+
+  static formatAtUser(user) {
+    return `<@${user.id}|${user.name}>`
+  }
 }
 
 module.exports = MessageHelpers;
