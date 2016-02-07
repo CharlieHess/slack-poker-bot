@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "engines": {
     "node": "0.12.7"
-  }, 
+  },
   "repository": "https://github.com/CharlieHess/slack-poker-bot",
   "scripts": {
     "start": "node src/main.js",
@@ -19,7 +19,7 @@
   "dependencies": {
     "babel": "^5.0.12",
     "imgur": "^0.1.5",
-    "lwip": "0.0.7",
+    "lwip": "0.0.8",
     "poker-evaluator": "^0.3.1",
     "promisify-node": "^0.1.5",
     "rx": "^2.5.2",
