@@ -3,7 +3,8 @@ const _ = require('lodash');
 
 const Slack = require('slack-client');
 const SlackApiRx = require('./slack-api-rx');
-const TexasHoldem = require('./texas-holdem');
+//const TexasHoldem = require('./texas-holdem');
+const ChinesePoker = require('./chinese-poker');
 const MessageHelpers = require('./message-helpers');
 const PlayerInteraction = require('./player-interaction');
 
@@ -57,8 +58,8 @@ class Bot {
   //
   // Returns a {Disposable} that will end this subscription
   handleDealGameMessages(messages, atMentions) {
-    return atMentions
-      .where(e => e.text && e.text.toLowerCase().match(/\bdeal\b/))
+    return messages
+      .where(e => e.text && e.text.toLowerCase().match(/chinese poker/))
       .map(e => ({ channel: this.slack.getChannelGroupOrDMByID(e.channel), initiator: e.user }))
       .where(starter => {
         if (this.isPolling) {
@@ -122,7 +123,7 @@ class Bot {
       });
   }
 
-  // Private: Starts and manages a new Texas Hold'em game.
+  // Private: Starts and manages a new Chinese Poker game.
   //
   // messages - An {Observable} representing messages posted to the channel
   // channel - The channel where the game will be played
@@ -138,7 +139,8 @@ class Bot {
     channel.send(`We've got ${players.length} players, let's start the game.`);
     this.isGameRunning = true;
     
-    let game = new TexasHoldem(this.slack, messages, channel, players);
+    //let game = new TexasHoldem(this.slack, messages, channel, players);
+    let game = new ChinesePoker(this.slack, messages, channel, players);
     _.extend(game, this.gameConfig);
 
     // Listen for messages directed at the bot containing 'quit game.'

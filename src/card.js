@@ -2,6 +2,12 @@ class Card {
   constructor(rank, suit) {
     this.rank = rank;
     this.suit = suit;
+    this.asciiSuit = suit[0].toLowerCase()
+  }
+
+  compareString(string) {
+    return this.rank == string[0].replace('1','A').toUpperCase()
+      && (string.length == 1 || string[1] == this.asciiSuit)
   }
 
   toString() {
@@ -22,6 +28,16 @@ class Card {
 
   static SuitMapping() {
     return {'Spades':'♠', 'Hearts':'♥', 'Diamonds':'♦', 'Clubs':'♣'};
+  }
+
+  static AsciiMapping() {
+    return {'s':'♠', 'h':'♥', 'd':'♦', 'c':'♣'};
+  }
+
+  static asciiToString(string) {
+    return string[0].replace('1','A').toUpperCase() + (string[1] ?
+      Card.AsciiMapping()[string[1].toLowerCase()] : '');
+
   }
 }
 
