@@ -139,7 +139,7 @@ class HandEvaluator {
     return HandEvaluator.royalties[row];
   }
 
-  static evalHand(hand, row=0) {
+  static evalHand(hand, rowIndex=0) {
     if (hand.length == 3) {
       // doesn't check duplicates
       let key = hand.reduce((sum,card,i) => {
@@ -148,7 +148,7 @@ class HandEvaluator {
       return HandEvaluator.instance.lookup[key];
     }
     let ret = pokerEvaluator.evalHand(hand), bonus;
-    let royalties = HandEvaluator.getRoyalties(row);
+    let royalties = HandEvaluator.getRoyalties(rowIndex);
     if (ret.handType == 9 && ret.handRank == 10) {
       bonus = royalties[10]; // royal flush
     } else {

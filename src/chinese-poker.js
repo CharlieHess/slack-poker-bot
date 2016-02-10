@@ -68,7 +68,7 @@ class ChinesePoker {
       let results = players.map(player => {
         let score = player.playField.map((row,i) => {
           let asciiRow = row.map(card => card.toAsciiString());
-          return HandEvaluator.evalHand(asciiRow);
+          return HandEvaluator.evalHand(asciiRow,i);
         });
         player.misset = score.reduce((acc, handScore) => {
           return acc <= handScore ? handScore : Number.POSITIVE_INFINITY
