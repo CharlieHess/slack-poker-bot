@@ -3,8 +3,8 @@ const Card = require('./card.js');
 class Deck {
   constructor() {
     this.cards = [];
-    for (let suit of Card.Suits()) {
-      for (let rank of Card.Ranks()) {
+    for (let suit of Card.Suits) {
+      for (let rank of Card.Ranks) {
         let card = new Card(rank, suit);
         this.cards.push(card);
       }

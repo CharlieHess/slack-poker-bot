@@ -9,6 +9,10 @@ class MessageHelpers {
   static formatAtUser(user) {
     return `<@${user.id}|${user.name}>`
   }
+
+  static money(n, dollar='$', plus='') {
+    return `${n < 0 ? '-' : plus}${dollar}${Math.abs(n)}`;
+  }
 }
 
 module.exports = MessageHelpers;

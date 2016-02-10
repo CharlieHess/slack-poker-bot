@@ -4,6 +4,9 @@ const Deck = require('./deck');
 const SlackApiRx = require('./slack-api-rx');
 const PlayerInteraction = require('./player-interaction');
 const MessageHelpers = require('./message-helpers');
+const Combinations = require('../util/combinations')
+const HandEvaluator = require('./hand-evaluator');
+
 const ROWNAMES = ['bot','mid','top'];
 
 rx.config.longStackSupport = true;
@@ -18,7 +21,8 @@ class ChinesePoker {
     this.gameEnded = new rx.Subject();
 
     for (let player of this.players) {
-      player.fantasyLand = false
+      player.fantasyLand = false;
+      player.score = 0;
     }
   }
 
@@ -44,24 +48,75 @@ class ChinesePoker {
     this.deck = new Deck();
     this.deck.shuffle();
     this.round = 0;
+    
+    let players = this.players;
     for (let player of this.players) {
       player.inPlay = true
     }
 
     let roundEnded = new rx.Subject();
-    let queryPlayers = rx.Observable.fromArray(this.players)
+    let queryPlayers = rx.Observable.fromArray(players)
       .where(player => player.inPlay)
-      .concatMap(player => this.deferredActionForPlayer(player, roundEnded))
+      //.concatMap(player => this.deferredActionForPlayer(player, roundEnded))
+      .concatMap(player => this.autoFlop(player, roundEnded))
       .repeat()
       .takeUntil(roundEnded)
       .publish()
 
     queryPlayers.connect();
     roundEnded.subscribe(() => {
-      // round end code here
+      let results = players.map(player => {
+        let score = player.playField.map((row,i) => {
+          let asciiRow = row.map(card => card.toAsciiString());
+          return HandEvaluator.evalHand(asciiRow);
+        });
+        player.misset = score.reduce((acc, handScore) => {
+          return acc <= handScore ? handScore : Number.POSITIVE_INFINITY
+        }, 0) == Number.POSITIVE_INFINITY;
+        return score;
+      })
+
+      let oldScores = players.map(player => player.score);
+      Combinations.k_combinations(_.times(players.length, Number), 2).forEach(combo => {
+        let [a,b] = combo;
+        let resultA = results[a];
+        let resultB = results[b];
+        let playerA = players[a];
+        let playerB = players[b];
+        let royaltyDif = 0;
+        let difference = resultA.reduce((score, resA, i) => {
+          let resB = resultB[i];
+          let valA = playerA.misset ? 0 : resA.value;
+          let valB = playerB.misset ? 0 : resB.value;
+          let royaltiesA = playerA.misset ? 0 : resA.royalties;
+          let royaltiesB = playerB.misset ? 0 : resB.royalties;
+          royaltyDif = royaltiesA - royaltiesB;
+          return score + (valA > valB ? 1 : valA < valB ? -1 : 0);
+        }, 0);
+        difference = (difference == 3) ? 6 : (difference == -3) ? -6 : difference;
+        playerA.score += difference + royaltyDif;
+        playerB.score -= difference + royaltyDif;
+      })
+
+      let money = MessageHelpers.money;
+      players.forEach((player,i) => {
+        this.channel.send(`\`${player.name}: ${money(oldScores[i])} ${money(player.score-oldScores[i],' ','+')}\``);
+      });
     })
 
     return roundEnded;
+  }
+
+  autoFlop(player, roundEnded) {
+    player.playField = [
+      _.times(5, () => this.deck.drawCard()),
+      _.times(5, () => this.deck.drawCard()),
+      _.times(3, () => this.deck.drawCard())
+    ];
+    player.inPlay = false;
+    this.checkRoundEnded(roundEnded);
+    this.showPlayField(player);
+    return rx.Observable.return(true);
   }
 
   deferredActionForPlayer(player, roundEnded, timeToPause=1000) {
@@ -78,7 +133,6 @@ class ChinesePoker {
         
       });
     });
-
   }
 
   playFiveCards(player) {
@@ -113,12 +167,12 @@ class ChinesePoker {
         }
         for (let i = 0; i < 3; i++) {
           let row = rows[i];
-          if (i == 2 && trackHand.length > 3) {
-            this.channel.send(`${MessageHelpers.formatAtUser(player)}, too many cards played on top`);
-            return
-          }
           let match
           while ((match = row.match(/[1-9tjqka][shdc]?/))) {
+            if (row.length >= (i < 2 ? 5 : 3)) {
+              this.channel.send(`${MessageHelpers.formatAtUser(player)}, too many cards played on ${ROWNAMES[i]}`);
+              return
+            }
             if (match[0].length == 1) {
               for (let j = i+1; j < 3; j++) {
                 if (rows[j].match(match[0])) {
@@ -148,12 +202,7 @@ class ChinesePoker {
 
     return rx.Observable.merge(playerAction, actionForTimeout)
       .take(1)
-      .do(playField => {
-        let showPlay = playField.map((row,i) => {
-          return `${MessageHelpers.formatAtUser(player)} ${ROWNAMES[i]}: ${row}`
-        }).reverse()
-        this.channel.send(`${showPlay.join("\n")}`)
-      })
+      .do(() => this.showPlayField(player))
       .do(() => expiredDisp.dispose())
       .do(() => this.round++)
 
@@ -182,7 +231,7 @@ class ChinesePoker {
       .map(e => e.text ? e.text.toLowerCase() : null)
 
     let bottomAction = textFilter
-      .where(text => text && text.match(/\bb(ot(tom)?)?\b/))
+      .where(text => text && text.match(/\bb((ot(tom)|ack)?)?\b/))
       .map(() => validRows.indexOf(0))
       .where(index => {
         if (index < 0) {
@@ -203,7 +252,7 @@ class ChinesePoker {
         return true;
       })
     let topAction = textFilter
-      .where(text => text && text.match(/\bt(op)?\b/))
+      .where(text => text && text.match(/\bt(op)?|f(ront)?\b/))
       .map(() => validRows.indexOf(2))
       .where(index => {
         if (index < 0) {
@@ -222,24 +271,30 @@ class ChinesePoker {
         let playField = player.playField
         playField[validRows[index]].push(card);
         player.inPlay = playField.reduce((acc,row) => acc + row.length,0) < 13;
-        if (this.players.reduce((acc,player) => acc && !player.inPlay,true)) {
-          roundEnded.onNext(true);
-          roundEnded.onCompleted();
-        }
+        this.checkRoundEnded(roundEnded);
         return playField;
       })
-      .do(playField => {
-        let showPlay = playField.map((row,i) => {
-          return `${MessageHelpers.formatAtUser(player)} ${ROWNAMES[i]}: ${row}`
-        }).reverse()
-        this.channel.send(`${showPlay.join("\n")}`);
-      })
+      .do(() => this.showPlayField(player))
       .do(() => expiredDisp.dispose())
       .do(() => this.round++)
 
   }
 
   playFantasyLand(player) {
+  }
+
+  showPlayField(player) {
+    let showPlay = player.playField.map((row,i) => {
+      return `${MessageHelpers.formatAtUser(player)} ${ROWNAMES[i]}: ${row}`
+    }).reverse()
+    this.channel.send(`${showPlay.join("\n")}`);
+  }
+
+  checkRoundEnded(roundEnded) {
+    if (this.players.reduce((acc,player) => acc && !player.inPlay,true)) {
+      roundEnded.onNext(true);
+      roundEnded.onCompleted();
+    }
   }
 }
 
