@@ -1,5 +1,6 @@
 const rx = require('rx');
 const _ = require('lodash');
+const M = require('./message-helpers')
 
 class PlayerInteraction {
   // Public: Poll players that want to join the game during a specified period
@@ -13,8 +14,8 @@ class PlayerInteraction {
   //
   // Returns an {Observable} that will `onNext` for each player that joins and
   // `onCompleted` when time expires or the max number of players join.
-  static pollPotentialPlayers(messages, channel, scheduler=rx.Scheduler.timeout, timeout=30, maxPlayers=4) {
-    let formatMessage = t => `Who wants to play? Respond with 'yes' in this channel in the next ${t} seconds.`;
+  static pollPotentialPlayers(messages, channel, scheduler=rx.Scheduler.timeout, timeout=5, maxPlayers=4) {
+    let formatMessage = t => `Who wants to play? Respond with 'yes' in this channel${M.timer(t)}.`;
     let timeExpired = PlayerInteraction.postMessageWithTimeout(channel, formatMessage, scheduler, timeout);
 
     // Look for messages containing the word 'yes' and map them to a unique
