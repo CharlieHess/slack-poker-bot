@@ -45,6 +45,7 @@ class Bot {
         
     disp.add(this.handleDealGameMessages(messages, atMentions));
     disp.add(this.handleConfigMessages(atMentions));
+    disp.add(this.handleHelpMessages(atMentions));
     
     return disp;
   }
@@ -94,6 +95,21 @@ class Bot {
       });
   }
   
+  // Private: Looks for messages directed at the bot that contain the word
+  // "help". When found, explain how to start new game.
+  //
+  // atMentions - An {Observable} representing messages directed at the bot
+  //
+  // Returns a {Disposable} that will end this subscription
+  handleHelpMessages(atMentions) {
+    return atMentions
+      .where(e => e.text && e.text.toLowerCase().match(/\bhelp\b/))
+      .subscribe(e => {
+        let channel = this.slack.getChannelGroupOrDMByID(e.channel);
+        channel.send("Type `@" + this.slack.self.name + " deal` to start new game of Texas Hold'em");
+      });
+  }
+
   // Private: Polls players to join the game, and if we have enough, starts an
   // instance.
   //
