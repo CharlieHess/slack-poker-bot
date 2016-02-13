@@ -29,10 +29,25 @@ class Deck {
       this.cards[cardsRemaining] = this.cards[idx];
       this.cards[idx] = temp;
     }
+    return this;
   }
 
   drawCard() {
     return this.cards.shift();
+  }
+
+  replaceTop(cards) {
+    if (!(cards instanceof Array)) {
+      cards = [cards];
+    }
+    let mapping = {};
+    let top = cards.map(card => {
+      mapping[card[0] + Card.AsciiMapping[card[1]]] = true;
+      return new Card(card);
+    });
+    this.cards = this.cards.filter(card => !mapping[card.toAsciiString()]);
+    this.cards = top.concat(this.cards);
+    return this;
   }
 
   toString() {

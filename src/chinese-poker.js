@@ -44,9 +44,12 @@ class ChinesePoker {
   quit() {
   }
 
+  resetDeck() {
+    return new Deck().shuffle();
+  }
+
   playRound() {
-    this.deck = new Deck();
-    this.deck.shuffle();
+    this.deck = this.resetDeck();
     this.round = 0;
     
     for (let player of this.players) {
@@ -185,7 +188,7 @@ class ChinesePoker {
               }
             }
             
-            let cardIndex = _.findIndex(trackHand);
+            let cardIndex = _.findIndex(trackHand, card => card.compareString(match[0]));
             if (cardIndex < 0) {
               this.channel.send(`${atPlayer}, you do not have ${Card.asciiToString(match[0])}`);
               return
