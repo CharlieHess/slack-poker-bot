@@ -242,20 +242,27 @@ describe('ChinesePoker', function() {
 
     scheduler.advanceBy(1000);
     messages.onNext({user: 1, text: 'm'});
-    assert(Card.check(players[0].playField[2], '8s2h7c'));
-    assert(Card.check(players[0].playField[1], '4c9dTcAc8d'));
-    assert(Card.check(players[0].playField[0], '4s5s3c2sAd'));
+    assert(Card.check(players[0].playField[2], '8s2h7c')); // -8, -1 
+    assert(Card.check(players[0].playField[1], '4c9dTcAc8d')); // -1, -1
+    assert(Card.check(players[0].playField[0], '4s5s3c2sAd')); // -3, +3
+    // -3, 0 => -14
 
     scheduler.advanceBy(1000);
     messages.onNext({user: 2, text: 't'});
-    assert(Card.check(players[1].playField[2], 'Qc2dQc'));
-    assert(Card.check(players[1].playField[1], 'Ts7d9sQdQs'));
-    assert(Card.check(players[1].playField[0], 'Th4hJh3h9h'));
+    assert(Card.check(players[1].playField[2], 'Qc2dQc')); // +8, +8
+    assert(Card.check(players[1].playField[1], 'Ts7d9sQdQs')); // +1, +1
+    assert(Card.check(players[1].playField[0], 'Th4hJh3h9h')); // +3, +5
+    // + 3, + 3 => 32
 
     scheduler.advanceBy(1000);
     messages.onNext({user: 3, text: 'm'});
-    assert(Card.check(players[2].playField[2], '6hQhKs'));
-    assert(Card.check(players[2].playField[1], 'Kd8h8cJcAh'));
-    assert(Card.check(players[2].playField[0], 'As5cJc5dJd'));
+    assert(Card.check(players[2].playField[2], '6hQhKs')); // +1, -8
+    assert(Card.check(players[2].playField[1], 'Kd8h8cJcAh')); // +1, -1
+    assert(Card.check(players[2].playField[0], 'As5cJc5dJd')); // -3, -5
+    // 0, -3 => -18
+
+    assert(players[0].score == -14);
+    assert(players[1].score == 32);
+    assert(players[2].score == -18);
   });
 });

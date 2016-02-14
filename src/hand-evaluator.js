@@ -154,9 +154,7 @@ class HandEvaluator {
     } else {
       bonus = royalties[ret.handType];
     }
-    if (bonus > 0) {
-      ret.royalties = bonus;
-    }
+    ret.royalties = bonus;
     return ret;
   }
 

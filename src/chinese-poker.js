@@ -67,7 +67,7 @@ class ChinesePoker {
       .publish()
 
     queryPlayers.connect();
-    roundEnded.subscribe(() => this.endRound);
+    roundEnded.subscribe(this.endRound.bind(this));
 
     return roundEnded;
   }
@@ -80,10 +80,10 @@ class ChinesePoker {
         return HandEvaluator.evalHand(asciiRow,i);
       });
       player.misset = score.reduce((acc, handScore) => {
-        return acc <= handScore ? handScore : Number.POSITIVE_INFINITY
-      }, 0) == Number.POSITIVE_INFINITY;
+        return acc >= handScore.value ? handScore.value : Number.NEGATIVE_INFINIY;
+      }, Number.POSITIVE_INFINITY) == Number.NEGITIVE_INFINITY;
       return score;
-    })
+    });
 
     let oldScores = players.map(player => player.score);
     Combinations.k_combinations(_.times(players.length, Number), 2).forEach(combo => {
@@ -99,7 +99,7 @@ class ChinesePoker {
         let valB = playerB.misset ? 0 : resB.value;
         let royaltiesA = playerA.misset ? 0 : resA.royalties;
         let royaltiesB = playerB.misset ? 0 : resB.royalties;
-        royaltyDif = royaltiesA - royaltiesB;
+        royaltyDif += royaltiesA - royaltiesB;
         return score + (valA > valB ? 1 : valA < valB ? -1 : 0);
       }, 0);
       difference = (difference == 3) ? 6 : (difference == -3) ? -6 : difference;
