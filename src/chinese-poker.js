@@ -196,22 +196,9 @@ class ChinesePoker {
     let atPlayer = `*${M.formatAtUser(player)}*`;
     this.channel.send(`${atPlayer}: You draw *[${hand.join('][')}]*`)
 
-    let timeout = 30
+    let timeout = 0
     let timeoutMessage = this.channel.send(`*Set hand* _(e.g. \`35h,a5c,t\`)_${M.timer(timeout)}`);
-    let timeExpired = timeout == 0 ? rx.Observable.never() : rx.Observable.timer(0,1000,this.scheduler)
-      .take(timeout+1)
-      .do((x) => timeoutMessage.updateMessage(`*Set hand* _(e.g. \`35h,a5c,t\`)_${M.timer(timeout - x)}`))
-      .publishLast()
-    let expiredDisp = timeExpired.connect();
-
-
-    let actionForTimeout = timeExpired.map(() => {
-      let r1 = _.random(5)
-      let r2 = _.random(Math.max(r1,2), 5)
-      let playField = [hand.slice(0,r1), hand.slice(r1,r2), hand.slice(r2)];
-      player.playField = playField;
-      return playField;
-    });
+    
     let playerAction = this.messages
       .where(e => e.user === player.id)
       .map(e => e.text ? e.text.toLowerCase().split(/\W/) : null)
@@ -257,13 +244,32 @@ class ChinesePoker {
         return playField;
       }).where(playField => !!playField)
 
-    return rx.Observable.merge(playerAction, actionForTimeout)
-      .take(1)
-      .do(() => this.showPlayField(player))
-      .do(() => expiredDisp.dispose())
-      .do(() => this.round++)
+      if (timeout > 0) {
+        let timeExpired = rx.Observable.timer(0,1000,this.scheduler)
+          .take(timeout+1)
+          .do((x) => timeoutMessage.updateMessage(`*Set hand* _(e.g. \`35h,a5c,t\`)_${M.timer(timeout - x)}`))
+          .publishLast()
+        let expiredDisp = timeExpired.connect();
 
 
+        let actionForTimeout = timeExpired.map(() => {
+          let r1 = _.random(5)
+          let r2 = _.random(Math.max(r1,2), 5)
+          let playField = [hand.slice(0,r1), hand.slice(r1,r2), hand.slice(r2)];
+          player.playField = playField;
+          return playField;
+        });
+
+        return rx.Observable.merge(playerAction, actionForTimeout)
+          .take(1)
+          .do(() => this.showPlayField(player))
+          .do(() => expiredDisp.dispose())
+          .do(() => this.round++)
+      }
+
+      return playerAction.take(1)
+        .do(() => this.showPlayField(player))
+        .do(() => this.round++)
   }
 
   playOneCard(player, roundEnded) {
@@ -276,7 +282,7 @@ class ChinesePoker {
     this.showPlayField(playerOrder);
     this.channel.send(`${atPlayer}: You draw *[${card}]*`)
 
-    let timeout = 15
+    let timeout = 0
     let validRows = player.playField
       .map((row,i) => row.length < (i < 2 ? 5 : 3) ? i : null)
       .filter((row) => row !== null);
@@ -285,15 +291,7 @@ class ChinesePoker {
     let cmd = validRows.map(rowIndex => availableCommands[rowIndex]).join("\t");
 
     let timeoutMessage = this.channel.send(`Respond with\t${cmd}\t${M.timer(timeout)}`);
-    let timeExpired = timeout == 0 ? rx.Observable.never() : rx.Observable.timer(0,1000,this.scheduler)
-      .take(timeout+1)
-      .do((x) => timeoutMessage.updateMessage(`Respond with\t${cmd}\t${M.timer(timeout - x)}`))
-      .publishLast()
-    let expiredDisp = timeExpired.connect();
 
-    
-
-    let actionForTimeout = timeExpired.map(() => _.random(validRows.length - 1));
     let textFilter = this.messages
       .where(e => e.user === player.id)
       .map(e => e.text ? e.text.trim().toLowerCase() : null)
@@ -331,21 +329,31 @@ class ChinesePoker {
       })
 
     let playerAction = rx.Observable.merge(bottomAction, middleAction, topAction)
-      .take(1)
+    let mapPlay = index => {
+      let playField = player.playField
+      playField[validRows[index]].push(card);
+      player.inPlay = playField.reduce((acc,row) => acc + row.length,0) < 13;
+      this.checkRoundEnded(roundEnded);
+      return playField;
+    };
+    if (timeout > 0) {
+      let timeExpired = rx.Observable.timer(0,1000,this.scheduler)
+        .take(timeout+1)
+        .do((x) => timeoutMessage.updateMessage(`Respond with\t${cmd}\t${M.timer(timeout - x)}`))
+        .publishLast()
+      let expiredDisp = timeExpired.connect();
+      let actionForTimeout = timeExpired.map(() => _.random(validRows.length - 1));
 
       return rx.Observable.merge(playerAction, actionForTimeout)
-      .take(1)
-      .map(index => {
-        let playField = player.playField
-        playField[validRows[index]].push(card);
-        player.inPlay = playField.reduce((acc,row) => acc + row.length,0) < 13;
-        this.checkRoundEnded(roundEnded);
-        return playField;
-      })
+        .take(1)
+        .map(mapPlay)
+        .do(() => this.showPlayField(player))
+        .do(() => expiredDisp.dispose())
+        .do(() => this.round++);
+    }
+    return playerAction.take(1)
       .do(() => this.showPlayField(player))
-      .do(() => expiredDisp.dispose())
-      .do(() => this.round++)
-
+      .do(() => this.round++);
   }
 
   playFantasyLand(player) {
@@ -362,17 +370,7 @@ class ChinesePoker {
 
     let timeout = 0
     let timeoutMessage = this.channel.send(`*Set hand* _(e.g. \`35h,a5c,t\`)_${M.timer(timeout)}`);
-    let timeExpired = timeout == 0 ? rx.Observable.never() : rx.Observable.timer(0,1000,this.scheduler)
-      .take(timeout+1)
-      .do((x) => timeoutMessage.updateMessage(`*Set hand* _(e.g. \`35h,a5c,t\`)_${M.timer(timeout - x)}`))
-      .publishLast()
-    let expiredDisp = timeExpired.connect();
 
-    let actionForTimeout = timeExpired.map(() => {
-      let playField = [hand.slice(8,13), hand.slice(3,8), hand.slice(0,3)];
-      player.playField = playField;
-      return playField;
-    });
     let playerAction = this.messages
       .where(e => e.user === player.id)
       .map(e => e.text ? e.text.toLowerCase().split(/\W/) : null)
@@ -421,10 +419,29 @@ class ChinesePoker {
         return playField;
       }).where(playField => !!playField)
 
-    return rx.Observable.merge(playerAction, actionForTimeout)
-      .take(1)
+    if (timeout > 0) {
+      let timeExpired = rx.Observable.timer(0,1000,this.scheduler)
+        .take(timeout+1)
+        .do((x) => timeoutMessage.updateMessage(`*Set hand* _(e.g. \`35h,a5c,t\`)_${M.timer(timeout - x)}`))
+        .publishLast()
+      let expiredDisp = timeExpired.connect();
+
+      let actionForTimeout = timeExpired.map(() => {
+        let playField = [hand.slice(8,13), hand.slice(3,8), hand.slice(0,3)];
+        player.playField = playField;
+        return playField;
+      });
+
+
+      return rx.Observable.merge(playerAction, actionForTimeout)
+        .take(1)
+        .do(() => this.showPlayField(player))
+        .do(() => expiredDisp.dispose())
+        .do(() => this.round++)
+    }
+
+    return playerAction.take(1)
       .do(() => this.showPlayField(player))
-      .do(() => expiredDisp.dispose())
       .do(() => this.round++)
   }
 
