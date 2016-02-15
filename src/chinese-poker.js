@@ -8,6 +8,8 @@ const Combinations = require('../util/combinations')
 const HandEvaluator = require('./hand-evaluator');
 
 const ROWNAMES = ['bot','mid','top'];
+const VERT = ' | ';
+const BLANK = '   ';
 
 rx.config.longStackSupport = true;
 
@@ -72,44 +74,86 @@ class ChinesePoker {
     return roundEnded;
   }
 
+  playerScore(player) {
+    let alreadyInFantasyland = player.fantasyLand;
+    let score = player.playField.map((row,i) => {
+      let asciiRow = row.map(card => card.toAsciiString());
+      return HandEvaluator.evalHand(asciiRow,i);
+    });
+    player.misset = score.reduce((acc, handScore) => {
+      return acc >= handScore.value ? handScore.value : Number.NEGATIVE_INFINIY;
+    }, Number.POSITIVE_INFINITY) == Number.NEGITIVE_INFINITY;
+    if (!player.misset) {
+      if (alreadyInFantasyland) {
+        player.fantasyLand = score.reduce((acc, handScore) => {
+          return handScore.royalties >= 10 || acc;
+        }, false);
+      } else {
+        player.fantasyLand = score[2].royalties >= 7;
+      }
+    }
+    return score;
+  }
+
   endRound() {
     let players = this.players;
-    let results = players.map(player => {
-      let score = player.playField.map((row,i) => {
-        let asciiRow = row.map(card => card.toAsciiString());
-        return HandEvaluator.evalHand(asciiRow,i);
-      });
-      player.misset = score.reduce((acc, handScore) => {
-        return acc >= handScore.value ? handScore.value : Number.NEGATIVE_INFINIY;
-      }, Number.POSITIVE_INFINITY) == Number.NEGITIVE_INFINITY;
-      return score;
-    });
+    let results = players.map(player => this.playerScore(player));
+    let displayScoreColumn = [];
 
     let oldScores = players.map(player => player.score);
-    Combinations.k_combinations(_.times(players.length, Number), 2).forEach(combo => {
-      let [a,b] = combo;
-      let resultA = results[a];
-      let resultB = results[b];
-      let playerA = players[a];
-      let playerB = players[b];
-      let royaltyDif = 0;
-      let difference = resultA.reduce((score, resA, i) => {
-        let resB = resultB[i];
-        let valA = playerA.misset ? 0 : resA.value;
-        let valB = playerB.misset ? 0 : resB.value;
-        let royaltiesA = playerA.misset ? 0 : resA.royalties;
-        let royaltiesB = playerB.misset ? 0 : resB.royalties;
-        royaltyDif += royaltiesA - royaltiesB;
-        return score + (valA > valB ? 1 : valA < valB ? -1 : 0);
-      }, 0);
-      difference = (difference == 3) ? 6 : (difference == -3) ? -6 : difference;
-      playerA.score += difference + royaltyDif;
-      playerB.score -= difference + royaltyDif;
-    })
+    for (let i = 0; i < players.length; i++) {
+      let playerA = players[i];
+      let resultA = results[i];
 
-    players.forEach((player,i) => {
-      this.channel.send(`\`${player.name}: ${M.money(oldScores[i])} ${M.money(player.score-oldScores[i],' ','+')}\``);
-    });
+      for (let j = i + 1; j < players.length; j++) {
+        let playerB = players[j];
+        let resultB = results[j];
+        let swing = 0;
+        let scores = resultA.map((resA,row) => {
+          let resB = resultB[row];
+          let valA = playerA.misset ? 0 : resA.value;
+          let valB = playerB.misset ? 0 : resB.value;
+          let royaltiesA = playerA.misset ? 0 : resA.royalties;
+          let royaltiesB = playerB.misset ? 0 : resB.royalties;
+          let res = valA > valB ? 1 : valA < valB ? -1 : 0;
+          swing += res;
+          return res + royaltiesA - royaltiesB;
+        });
+        swing = Math.abs(swing) == 3 ? swing : 0;
+        let total = scores.reduce((acc,pts) => acc+pts, swing);
+        playerA.score += total;
+        playerB.score -= total;
+        let display = [];
+        for (let k = 0; k < players.length; k++) {
+          let playerColumn;
+          if (k == i) {
+            playerColumn = [BLANK, ...scores.map(pts => M.pts(pts))];
+          } else if (k == j) {
+            playerColumn = [VERT, ...scores.map(pts => M.pts(-pts))];
+          } else {
+            playerColumn = _.fill(Array(4),k <= i || k > j ? BLANK : VERT);
+          }
+          display = display.concat(playerColumn);
+        }
+        displayScoreColumn.push(display);
+      }
+    }
+    let displayResults = [];
+    for (let k = 0; k < players.length; k++) {
+      let player = players[k];
+      displayResults.push(M.fix(player.name,11) + ' ' + displayScoreColumn.map(disp => disp[k*4]).join(' '));
+      displayResults.push(_.pad(player.playField[2].join(''),10) + ' ' +displayScoreColumn.map(disp => disp[k*4+3]).join(' '));
+      displayResults.push(_.pad(player.playField[1].join(''),10) + ' ' +displayScoreColumn.map(disp => disp[k*4+2]).join(' '));
+      displayResults.push(_.pad(player.playField[0].join(''),10) + ' ' +displayScoreColumn.map(disp => disp[k*4+1]).join(' '));
+    }
+    displayResults.push('');
+    for (let k = 0; k < players.length; k++) {
+      let player = players[k], old = oldScores[k], score = player.score, add = score - old;
+      displayResults.push(
+        `${M.fix(player.name,11)}: ${M.pts(old,5,'$')} ${M.pts(add,3,' ')} = ${M.pts(score,5,'$')}`
+      );
+    }
+    this.channel.send(`\`\`\`${displayResults.join("\n")}\`\`\``);
   }
 
   autoFlop(player, roundEnded) {
@@ -142,12 +186,12 @@ class ChinesePoker {
 
   playFiveCards(player) {
     let hand = _.times(5, () => this.deck.drawCard());
-    let atPlayer = M.formatAtUser(player);
+    let atPlayer = `*${M.formatAtUser(player)}*`;
     this.channel.send(`${atPlayer}: You draw *[${hand.join('][')}]*`)
 
     let timeout = 30
     let timeoutMessage = this.channel.send(`*Set hand* _(e.g. \`35h,a5c,t\`)_${M.timer(timeout)}`);
-    let timeExpired = rx.Observable.timer(0,1000,this.scheduler)
+    let timeExpired = timeout == 0 ? rx.Observable.never() : rx.Observable.timer(0,1000,this.scheduler)
       .take(timeout+1)
       .do((x) => timeoutMessage.updateMessage(`*Set hand* _(e.g. \`35h,a5c,t\`)_${M.timer(timeout - x)}`))
       .publishLast()
@@ -217,7 +261,7 @@ class ChinesePoker {
 
   playOneCard(player, roundEnded) {
     let card = this.deck.drawCard();
-    let atPlayer = M.formatAtUser(player);
+    let atPlayer = `*${M.formatAtUser(player)}*`;
     let players = this.players;
     let playerIndex = players.indexOf(player);
     let playerOrder = players.slice(playerIndex)
@@ -234,7 +278,7 @@ class ChinesePoker {
     let cmd = validRows.map(rowIndex => availableCommands[rowIndex]).join("\t");
 
     let timeoutMessage = this.channel.send(`Respond with\t${cmd}\t${M.timer(timeout)}`);
-    let timeExpired = rx.Observable.timer(0,1000,this.scheduler)
+    let timeExpired = timeout == 0 ? rx.Observable.never() : rx.Observable.timer(0,1000,this.scheduler)
       .take(timeout+1)
       .do((x) => timeoutMessage.updateMessage(`Respond with\t${cmd}\t${M.timer(timeout - x)}`))
       .publishLast()
@@ -298,11 +342,91 @@ class ChinesePoker {
   }
 
   playFantasyLand(player) {
+    let hand = _.times(13, () => this.deck.drawCard()).sort((a,b) => {
+      return Card.Ranks.indexOf(a.rank) * 10 + Card.Suits.indexOf(a.suit)
+           - Card.Ranks.indexOf(b.rank) * 10 - Card.Suits.indexOf(b.suit);
+    });
+    let dm = this.playerDms[player.id];
+    if (!dm) {
+        throw new Error('player dm failed, this should not happen');
+    } else {
+      dm.send(`You draw *[${hand.join('][')}]* in Fantasyland!`)
+    }
+
+    let timeout = 0
+    let timeoutMessage = this.channel.send(`*Set hand* _(e.g. \`35h,a5c,t\`)_${M.timer(timeout)}`);
+    let timeExpired = timeout == 0 ? rx.Observable.never() : rx.Observable.timer(0,1000,this.scheduler)
+      .take(timeout+1)
+      .do((x) => timeoutMessage.updateMessage(`*Set hand* _(e.g. \`35h,a5c,t\`)_${M.timer(timeout - x)}`))
+      .publishLast()
+    let expiredDisp = timeExpired.connect();
+
+    let actionForTimeout = timeExpired.map(() => {
+      let playField = [hand.slice(8,13), hand.slice(3,8), hand.slice(0,3)];
+      player.playField = playField;
+      return playField;
+    });
+    let playerAction = this.messages
+      .where(e => e.user === player.id)
+      .map(e => e.text ? e.text.toLowerCase().split(/\W/) : null)
+      .where(rows => rows && rows.length >= 2)
+      .map(rows => {
+        let playField = [[],[],[]];
+        let trackHand = hand.slice(0);
+        for (let i = 0; i < 3; i++) {
+          let row = rows[i];
+          let match
+          while ((match = row.match(/[1-9tjqka][shdc]?/))) {
+            if (playField[i].length >= (i < 2 ? 5 : 3)) {
+              this.channel.send(`${atPlayer}, too many cards played on ${ROWNAMES[i]}`);
+              return
+            }
+            if (match[0].length == 1) {
+              for (let j = i+1; j < 3; j++) {
+                if (rows[j].match(match[0])) {
+                  this.channel.send(`${atPlayer}, ambiguous card ${Card.asciiToString(match[0])}`);
+                  return
+                }
+              }
+            }
+            
+            let cardIndex = _.findIndex(trackHand, card => card.compareString(match[0]));
+            if (cardIndex < 0) {
+              this.channel.send(`${atPlayer}, you do not have ${Card.asciiToString(match[0])}`);
+              return
+            }
+            
+            playField[i].push(trackHand.splice(cardIndex,1)[0])
+            row = row.substring(match.index + match[0].length);
+          }
+        }
+        if (trackHand.length > 0) {
+          this.channel.send(`${atPlayer}, you need to play 5 cards, not ${5 - trackHand.length}`);
+          return
+        }
+        player.playField = playField;
+        this.playerScore(player);
+        if (player.fantasyLand) {
+          this.channel.send(`${atPlayer} will stay in Fantasyland!`);
+
+        }
+        player.inPlay = false;
+        return playField;
+      }).where(playField => !!playField)
+
+    return rx.Observable.merge(playerAction, actionForTimeout)
+    .take(1)
+      .do(() => this.showPlayField([player]))
+      .do(() => expiredDisp.dispose())
+      .do(() => this.round++)
   }
 
   showPlayField(players) {
     let showPlay = players.map(player => {
       return `\`${player.name}\`\n` + player.playField.map((row,i) => {
+        if (player.fantasyLand) {
+          return '`[' + row.map(card => '  ?  ').join('][') + "]`\n";
+        }
         return '`[' + row.map(card => `\`${card}\``)
           .concat(_.fill(Array((i < 2 ? 5 : 3) - row.length), '     '))
           .join('][') + "]`\n";

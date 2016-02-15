@@ -1,3 +1,5 @@
+const _ = require('lodash');
+
 class MessageHelpers {
   // Public: Checks whether the message text contains an @-mention for the
   // given user.
@@ -10,8 +12,8 @@ class MessageHelpers {
     return `<@${user.id}|${user.name}>`
   }
 
-  static money(n, dollar='$', plus='') {
-    return `${n < 0 ? '-' : plus}${dollar}${Math.abs(n)}`;
+  static pts(n,space=3,dollar='') {
+    return `${n < 0 ? '-' : '+'}${_.padStart(dollar+Math.abs(n),space-1)}`;
   }
 
   static get CLOCK() {
@@ -24,6 +26,10 @@ class MessageHelpers {
     }
     let CLOCK = MessageHelpers.CLOCK;
     return ` in ${CLOCK[t % CLOCK.length]}${t}s`;
+  }
+
+  static fix(s, n) {
+    return _.padEnd(_.truncate(s, { length: n-1, omission: '…' }), n);
   }
 }
 
