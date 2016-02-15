@@ -30,6 +30,7 @@ class ChinesePoker {
   start(playerDms, timeBetweenHands=3000) {
     this.isRunning = true;
     this.playerDms = playerDms;
+    this.playerOrder = this.players;
 
     rx.Observable.return(true)
       .flatMap(() => this.playRound()
@@ -63,7 +64,7 @@ class ChinesePoker {
     }
 
     let roundEnded = new rx.Subject();
-    let queryPlayers = rx.Observable.fromArray(this.players)
+    let queryPlayers = rx.Observable.fromArray(this.playerOrder)
       .where(player => player.inPlay)
       .concatMap(player => this.deferredActionForPlayer(player, roundEnded))
       //.concatMap(player => this.autoFlop(player, roundEnded))
@@ -157,6 +158,9 @@ class ChinesePoker {
       );
     }
     this.channel.send(`\`\`\`${displayResults.join("\n")}\`\`\``);
+
+    // rotate players
+    this.playerOrder = this.playerOrder.slice(1).concat(this.playerOrder.slice(0,1));
   }
 
   autoFlop(player, roundEnded) {
@@ -166,8 +170,8 @@ class ChinesePoker {
       _.times(3, () => this.deck.drawCard())
     ];
     player.inPlay = false;
-    this.checkRoundEnded(roundEnded);
     this.showPlayField(player);
+    this.checkRoundEnded(roundEnded);
     return rx.Observable.return(true);
   }
 
@@ -254,7 +258,7 @@ class ChinesePoker {
       }).where(playField => !!playField)
 
     return rx.Observable.merge(playerAction, actionForTimeout)
-    .take(1)
+      .take(1)
       .do(() => this.showPlayField(player))
       .do(() => expiredDisp.dispose())
       .do(() => this.round++)
@@ -418,7 +422,7 @@ class ChinesePoker {
       }).where(playField => !!playField)
 
     return rx.Observable.merge(playerAction, actionForTimeout)
-    .take(1)
+      .take(1)
       .do(() => this.showPlayField(player))
       .do(() => expiredDisp.dispose())
       .do(() => this.round++)
