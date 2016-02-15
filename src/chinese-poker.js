@@ -8,7 +8,6 @@ const Combinations = require('../util/combinations')
 const HandEvaluator = require('./hand-evaluator');
 
 const ROWNAMES = ['bot','mid','top'];
-const VERT = ' | ';
 const BLANK = '   ';
 
 rx.config.longStackSupport = true;
@@ -44,6 +43,10 @@ class ChinesePoker {
   }
 
   quit() {
+    this.gameEnded.onNext(true);
+    this.gameEnded.onCompleted();
+    
+    this.isRunning = false;
   }
 
   resetDeck() {
@@ -129,9 +132,9 @@ class ChinesePoker {
           if (k == i) {
             playerColumn = [BLANK, ...scores.map(pts => M.pts(pts))];
           } else if (k == j) {
-            playerColumn = [VERT, ...scores.map(pts => M.pts(-pts))];
+            playerColumn = [BLANK, ...scores.map(pts => M.pts(-pts))];
           } else {
-            playerColumn = _.fill(Array(4),k <= i || k > j ? BLANK : VERT);
+            playerColumn = _.fill(Array(4),BLANK);
           }
           display = display.concat(playerColumn);
         }
@@ -252,7 +255,7 @@ class ChinesePoker {
 
     return rx.Observable.merge(playerAction, actionForTimeout)
     .take(1)
-      .do(() => this.showPlayField([player]))
+      .do(() => this.showPlayField(player))
       .do(() => expiredDisp.dispose())
       .do(() => this.round++)
 
@@ -335,7 +338,7 @@ class ChinesePoker {
         this.checkRoundEnded(roundEnded);
         return playField;
       })
-      .do(() => this.showPlayField([player]))
+      .do(() => this.showPlayField(player))
       .do(() => expiredDisp.dispose())
       .do(() => this.round++)
 
@@ -416,12 +419,15 @@ class ChinesePoker {
 
     return rx.Observable.merge(playerAction, actionForTimeout)
     .take(1)
-      .do(() => this.showPlayField([player]))
+      .do(() => this.showPlayField(player))
       .do(() => expiredDisp.dispose())
       .do(() => this.round++)
   }
 
   showPlayField(players) {
+    if (!(players instanceof Array)) {
+      players = [players];
+    }
     let showPlay = players.map(player => {
       return `\`${player.name}\`\n` + player.playField.map((row,i) => {
         if (player.fantasyLand) {
