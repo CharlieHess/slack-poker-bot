@@ -59,7 +59,7 @@ class Bot {
   // Returns a {Disposable} that will end this subscription
   handleDealGameMessages(messages, atMentions) {
     return messages
-      .where(e => e.text && e.text.toLowerCase().match(/chinese poker/))
+      .where(e => e.text && e.text.toLowerCase().match(/chinese poker|\bofc\b/i))
       .map(e => ({ channel: this.slack.getChannelGroupOrDMByID(e.channel), initiator: e.user }))
       .where(starter => {
         if (this.isPolling) {
@@ -106,6 +106,7 @@ class Bot {
     this.isPolling = true;
 
     return PlayerInteraction.pollPotentialPlayers(messages, channel)
+      .where(user => user != initiator)
       .shareValue(initiator)
       .reduce((players, id) => {
         let user = this.slack.getUserByID(id);
@@ -145,7 +146,7 @@ class Bot {
 
     // Listen for messages directed at the bot containing 'quit game.'
     let quitGameDisp = messages.where(e => MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
-      e.text.toLowerCase().match(/\bquit\b/))
+      e.text.toLowerCase().match(/\bquit\b/i))
       .take(1)
       .subscribe(e => {
         // TODO: Should poll players to make sure they all want to quit.
