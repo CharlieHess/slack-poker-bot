@@ -1,6 +1,7 @@
 const rx = require('rx');
 const _ = require('lodash');
 const Deck = require('./deck');
+const Card = require('./card');
 const SlackApiRx = require('./slack-api-rx');
 const PlayerInteraction = require('./player-interaction');
 const M = require('./message-helpers');
@@ -194,7 +195,7 @@ class ChinesePoker {
   playFiveCards(player) {
     let hand = _.times(5, () => this.deck.drawCard());
     let atPlayer = `*${M.formatAtUser(player)}*`;
-    this.channel.send(`${atPlayer}: You draw *[${hand.join('][')}]*`)
+    this.channel.send(`${atPlayer}: You draw *${hand.join('')}*`)
 
     let timeout = 0
     let timeoutMessage = this.channel.send(`*Set hand* _(e.g. \`35h,a5c,t\`)_${M.timer(timeout)}`);
@@ -280,7 +281,7 @@ class ChinesePoker {
     let playerOrder = players.slice(playerIndex)
       .concat(players.slice(0,playerIndex)).slice(0,-1).reverse();
     this.showPlayField(playerOrder);
-    this.channel.send(`${atPlayer}: You draw *[${card}]*`)
+    this.channel.send(`${atPlayer}: You draw *${card}*`)
 
     let timeout = 0
     let validRows = player.playField
@@ -352,6 +353,7 @@ class ChinesePoker {
         .do(() => this.round++);
     }
     return playerAction.take(1)
+      .map(mapPlay)
       .do(() => this.showPlayField(player))
       .do(() => this.round++);
   }
@@ -365,7 +367,7 @@ class ChinesePoker {
     if (!dm) {
         throw new Error('player dm failed, this should not happen');
     } else {
-      dm.send(`You draw *[${hand.join('][')}]* in Fantasyland!`)
+      dm.send(`You draw *${hand.join('')}* in Fantasyland!`)
     }
 
     let timeout = 0
@@ -454,9 +456,9 @@ class ChinesePoker {
         if (player.fantasyLand) {
           return '`[' + row.map(card => '  ?  ').join('][') + "]`\n";
         }
-        return '`[' + row.map(card => `\`${card}\``)
-          .concat(_.fill(Array((i < 2 ? 5 : 3) - row.length), '     '))
-          .join('][') + "]`\n";
+        let endSpaces = (i < 2 ? 5 : 3) - row.length;
+        let firstBar = row.length ? '|' : '';
+        return row.join('`|`') + (endSpaces ? `\`${firstBar}${_.fill(Array(endSpaces), '     ').join('|')}\`\n` : '\n');
       }).reverse().join("\n");
     });
     this.channel.send(`${showPlay.join("\n")}`);
