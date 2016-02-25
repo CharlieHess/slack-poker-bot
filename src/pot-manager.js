@@ -1,4 +1,4 @@
-const _ = require('underscore-plus');
+const _ = require('lodash');
 
 const HandEvaluator = require('./hand-evaluator');
 

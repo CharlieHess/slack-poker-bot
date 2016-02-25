@@ -1,5 +1,5 @@
 const rx = require('rx');
-const _ = require('underscore-plus');
+const _ = require('lodash');
 
 const Deck = require('./deck');
 const PotManager = require('./pot-manager');

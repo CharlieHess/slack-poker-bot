@@ -2,7 +2,7 @@
   "name": "slack-poker-bot",
   "version": "1.0.0",
   "engines": {
-    "node": "0.12.7"
+    "node": "latest"
   }, 
   "repository": "https://github.com/CharlieHess/slack-poker-bot",
   "scripts": {
@@ -19,13 +19,13 @@
   "dependencies": {
     "babel": "^5.0.12",
     "imgur": "^0.1.5",
-    "lwip": "0.0.7",
+    "lwip": "0.0.8",
     "poker-evaluator": "^0.3.1",
     "promisify-node": "^0.1.5",
-    "rx": "^2.5.2",
+    "rx": "^4.0.7",
     "slack-client": "^1.4.1",
     "text-table": "^0.2.0",
-    "underscore-plus": "^1.6.6",
+    "lodash": "^4.0.1",
     "uuid": "^2.0.1"
   }
 }

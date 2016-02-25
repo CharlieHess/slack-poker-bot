@@ -1,9 +1,10 @@
 const rx = require('rx');
-const _ = require('underscore-plus');
+const _ = require('lodash');
 
 const Slack = require('slack-client');
 const SlackApiRx = require('./slack-api-rx');
-const TexasHoldem = require('./texas-holdem');
+//const TexasHoldem = require('./texas-holdem');
+const ChinesePoker = require('./chinese-poker');
 const MessageHelpers = require('./message-helpers');
 const PlayerInteraction = require('./player-interaction');
 
@@ -57,19 +58,19 @@ class Bot {
   //
   // Returns a {Disposable} that will end this subscription
   handleDealGameMessages(messages, atMentions) {
-    return atMentions
-      .where(e => e.text && e.text.toLowerCase().match(/\bdeal\b/))
-      .map(e => this.slack.getChannelGroupOrDMByID(e.channel))
-      .where(channel => {
+    return messages
+      .where(e => e.text && e.text.toLowerCase().match(/chinese poker|\bofc\b/i))
+      .map(e => ({ channel: this.slack.getChannelGroupOrDMByID(e.channel), initiator: e.user }))
+      .where(starter => {
         if (this.isPolling) {
           return false;
         } else if (this.isGameRunning) {
-          channel.send('Another game is in progress, quit that first.');
+          starter.channel.send('Another game is in progress, quit that first.');
           return false;
         }
         return true;
       })
-      .flatMap(channel => this.pollPlayersForGame(messages, channel))
+      .flatMap(starter => this.pollPlayersForGame(messages, starter.channel, starter.initiator))
       .subscribe();
   }
   
@@ -101,13 +102,15 @@ class Bot {
   // channel - The channel where the deal message was posted
   //
   // Returns an {Observable} that signals completion of the game 
-  pollPlayersForGame(messages, channel) {
+  pollPlayersForGame(messages, channel, initiator) {
     this.isPolling = true;
 
     return PlayerInteraction.pollPotentialPlayers(messages, channel)
+      .where(user => user != initiator)
+      .shareValue(initiator)
       .reduce((players, id) => {
         let user = this.slack.getUserByID(id);
-        channel.send(`${user.name} has joined the game.`);
+        channel.send(`${MessageHelpers.formatAtUser(user)} has joined the game.`);
         
         players.push({id: user.id, name: user.name});
         return players;
@@ -121,7 +124,7 @@ class Bot {
       });
   }
 
-  // Private: Starts and manages a new Texas Hold'em game.
+  // Private: Starts and manages a new Chinese Poker game.
   //
   // messages - An {Observable} representing messages posted to the channel
   // channel - The channel where the game will be played
@@ -137,12 +140,13 @@ class Bot {
     channel.send(`We've got ${players.length} players, let's start the game.`);
     this.isGameRunning = true;
     
-    let game = new TexasHoldem(this.slack, messages, channel, players);
+    //let game = new TexasHoldem(this.slack, messages, channel, players);
+    let game = new ChinesePoker(this.slack, messages, channel, players);
     _.extend(game, this.gameConfig);
 
     // Listen for messages directed at the bot containing 'quit game.'
     let quitGameDisp = messages.where(e => MessageHelpers.containsUserMention(e.text, this.slack.self.id) &&
-      e.text.toLowerCase().match(/quit game/))
+      e.text.toLowerCase().match(/\bquit\b/i))
       .take(1)
       .subscribe(e => {
         // TODO: Should poll players to make sure they all want to quit.
