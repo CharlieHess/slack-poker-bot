@@ -1,5 +1,6 @@
 const rx = require('rx');
 const _ = require('underscore-plus');
+const OBAPI = require('./open-bank-api');
 
 class PlayerInteraction {
   // Public: Poll players that want to join the game during a specified period
@@ -32,6 +33,32 @@ class PlayerInteraction {
     return newPlayers.takeUntil(timeExpired);
   }
 
+  static connectToOpenBank(messages, channel, userId) {
+    channel.send('Connect to your OpenBank account');
+
+    return this.getUserInput(messages, channel, userId, 'Username')
+      .flatMap(username => {
+        return this.getUserInput(messages, channel, userId, 'Password')
+          .flatMap(password => {
+            return this.openOpenBankConnection(username, password);
+          });
+      });
+  }
+
+  static getUserInput(messages, channel, userId, property) {
+    channel.send(`${property}:`)
+
+    return messages
+      .where(message => message.user === userId)
+      .take(1)
+      .flatMap(message => rx.Observable.return(message.text));
+  }
+
+  static openOpenBankConnection(username, password) {
+    return OBAPI.authenticate(username, password);
+    // return rx.Observable.return(null);
+  }
+
   // Public: Poll a specific player to take a poker action, within a timeout.
   //
   // messages - An {Observable} representing new messages sent to the channel
@@ -47,7 +74,7 @@ class PlayerInteraction {
     scheduler=rx.Scheduler.timeout, timeout=30) {
     let availableActions = PlayerInteraction.getAvailableActions(player, previousActions);
     let formatMessage = t => PlayerInteraction.buildActionMessage(player, availableActions, t);
-    
+
     let timeExpired = null;
     let expiredDisp = null;
     if (timeout > 0) {
@@ -66,7 +93,7 @@ class PlayerInteraction {
       .publish();
 
     playerAction.connect();
-    
+
     // If the user times out, they will be auto-folded unless they can check.
     let actionForTimeout = timeExpired.map(() =>
       availableActions.indexOf('check') > -1 ?
@@ -118,11 +145,11 @@ class PlayerInteraction {
     for (let action of availableActions) {
       message += `*(${action.charAt(0).toUpperCase()})${action.slice(1)}*\t`;
     }
-    
+
     if (timeRemaining > 0) {
       message += `\nin the next ${timeRemaining} seconds.`;
     }
-    
+
     return message;
   }
 
@@ -156,7 +183,7 @@ class PlayerInteraction {
     if (raiseIndex > -1) {
       let previousWager = player.lastAction ? player.lastAction.amount : 0;
       let availableChips = player.chips + previousWager;
-      
+
       if (_.max(betActions, a => a.amount).amount >= availableChips) {
         availableActions.splice(raiseIndex, 1);
       }
