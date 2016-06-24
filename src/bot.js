@@ -16,7 +16,6 @@ class Bot {
   // token - An API token from the bot integration
   constructor(token) {
     this.slack = new Slack(token, true, true);
-    this.isCurrencySet = false;
     this.currency = '$';
 
     this.gameConfig = {};
@@ -72,7 +71,6 @@ class Bot {
         return true;
       })
       .where(channel => {
-        if (!this.isCurrencySet) {
           channel.send('Currency is not set! provide a currency("EUR", "GBP", "USD"): ');
           var self = this;
           let cur = messages.where(e => e.text && e.text.toLowerCase().match(/^(usd|eur|gbp|\$|€)$/))
@@ -84,8 +82,6 @@ class Bot {
                 return e.text})
               .publish();
           cur.connect();
-          return true;
-        }
         return true;
       })
       .subscribe();
