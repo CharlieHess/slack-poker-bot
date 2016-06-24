@@ -83,14 +83,11 @@ class Bot {
                 self.pollPlayersForGame(messages, channel).subscribe();
                 return e.text})
               .publish();
-
-          //currencyMessage.connect();
           cur.connect();
           return true;
         }
         return true;
       })
-      //.flatMap(channel => this.pollPlayersForGame(messages, channel))
       .subscribe();
   }
 
