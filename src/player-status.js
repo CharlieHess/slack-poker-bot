@@ -1,5 +1,4 @@
 const textTable = require('text-table');
-const bot = require('./bot');
 
 class PlayerStatus {
   // Public: Displays a fixed-width text table showing all of the players in
