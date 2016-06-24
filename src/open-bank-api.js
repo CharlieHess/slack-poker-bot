@@ -1,5 +1,6 @@
 const rx = require('rx');
 const needle = require('needle');
+const debug = require('debug')('bankapi');
 
 const baseUrl = 'https://apisandbox.openbankproject.com'
 
@@ -12,7 +13,7 @@ const api = {
     }
 
     needle.post(`${baseUrl}/user_mgt/login`, { username, password }, (err, body) => {
-      console.log(body.headers);
+      debug(body.headers);
       authSubject.onNext(body);
       authSubject.onCompleted();
     });

@@ -9,6 +9,8 @@ const PlayerStatus = require('./player-status');
 const ImageHelpers = require('./image-helpers');
 const PlayerInteraction = require('./player-interaction');
 
+const debug = require('debug')('game');
+
 class TexasHoldem {
   // Public: Creates a new game instance.
   //
@@ -560,6 +562,7 @@ class TexasHoldem {
     else
       message += '.';
 
+    debug(message);
     this.channel.send(message);
   }
 

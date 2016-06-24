@@ -10,6 +10,8 @@ const PlayerInteraction = require('./player-interaction');
 const WeakBot = require('../ai/weak-bot');
 const AggroBot = require('../ai/aggro-bot');
 
+const debug = require('debug')('game');
+
 class Bot {
   // Public: Creates a new instance of the bot.
   //
@@ -68,6 +70,7 @@ class Bot {
           channel.send('Another game is in progress, quit that first.');
           return false;
         }
+        debug('new deal game mention is found');
         return true;
       })
       .where(channel => {
@@ -134,10 +137,12 @@ class Bot {
   pollPlayersForGame(messages, channel) {
     this.isPolling = true;
 
+    debug('poll players for a game');
     return PlayerInteraction.pollPotentialPlayers(messages, channel)
       .flatMap(playerId => this.connectPlayersToOpenBank(messages, channel, playerId))
       .reduce((players, id) => {
         let user = this.slack.getUserByID(id);
+        debug(`${user.name} has joined the game.`);
         channel.send(`${user.name} has joined the game.`);
 
         players.push({id: user.id, name: user.name});
@@ -177,6 +182,7 @@ class Bot {
       return rx.Observable.return(null);
     }
 
+    debug(`We've got ${players.length} players, let's start the game.`);
     channel.send(`We've got ${players.length} players, let's start the game.`);
     this.isGameRunning = true;
 
