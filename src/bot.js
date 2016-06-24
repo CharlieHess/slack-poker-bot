@@ -16,6 +16,7 @@ class Bot {
   // token - An API token from the bot integration
   constructor(token) {
     this.slack = new Slack(token, true, true);
+    this.currency = '$';
 
     this.gameConfig = {};
     this.gameConfigParams = ['timeout'];
@@ -69,8 +70,37 @@ class Bot {
         }
         return true;
       })
-      .flatMap(channel => this.pollPlayersForGame(messages, channel))
+      .where(channel => {
+          channel.send('Currency is not set! provide a currency("EUR", "GBP", "USD"): ');
+          messages
+            .where(e => e.text && e.text.toLowerCase().match(/^(usd|eur|gbp|\$|€)$/))
+            .take(1)
+            .map(e => {
+              this.setCurrency(e.text);
+              channel.send('Currency is set to: ' + this.currency);
+              this.pollPlayersForGame(messages, channel).subscribe();
+            })
+            .publish()
+            .connect();
+        return true;
+      })
       .subscribe();
+  }
+
+  setCurrency(currency) {
+    switch(currency){
+      case 'usd' :
+        this.currency = '$';
+        break;
+      case 'eur' :
+        this.currency = '€';
+        break;
+      case 'gbp' :
+        this.currency = '£';
+        break;
+      default :
+        this.currency = '$';
+    }
   }
 
   // Private: Looks for messages directed at the bot that contain the word
@@ -150,7 +180,7 @@ class Bot {
     channel.send(`We've got ${players.length} players, let's start the game.`);
     this.isGameRunning = true;
 
-    let game = new TexasHoldem(this.slack, messages, channel, players);
+    let game = new TexasHoldem(this.slack, messages, channel, players, this.currency);
     _.extend(game, this.gameConfig);
 
     // Listen for messages directed at the bot containing 'quit game.'
@@ -179,7 +209,7 @@ class Bot {
   addBotPlayers(players) {
     // let bot1 = new WeakBot('Phil Hellmuth');
     // players.push(bot1);
-
+    //
     //let bot2 = new AggroBot('Phil Ivey');
     //players.push(bot2);
   }
