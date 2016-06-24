@@ -16,7 +16,9 @@ class Bot {
   // token - An API token from the bot integration
   constructor(token) {
     this.slack = new Slack(token, true, true);
-    
+    this.isCurrencySetted = false;
+    this.currency = '$';
+
     this.gameConfig = {};
     this.gameConfigParams = ['timeout'];
   }
@@ -69,7 +71,25 @@ class Bot {
         }
         return true;
       })
-      .flatMap(channel => this.pollPlayersForGame(messages, channel))
+      .where(channel => {
+        if (!this.isCurrencySetted) {
+          channel.send('Currency is not setted provide a currency: ');
+          var self = this;
+          let cur = messages.where(e => e.text && e.text.toLowerCase().match(/\beur\b/))
+              .take(1).map(e => {self.curreny = e.text; console.log(e.text);
+                self.isCurrencySetted = true;
+                channel.send('Currency is set to: ' + e.text);
+                self.pollPlayersForGame(messages, channel);
+                return e.text})
+              .publish();
+
+          //currencyMessage.connect();
+          cur.connect();
+          return true;
+        }
+        return true;
+      })
+      //.flatMap(channel => this.pollPlayersForGame(messages, channel))
       .subscribe();
   }
   
