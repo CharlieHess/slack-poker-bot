@@ -9,10 +9,11 @@ class PotManager {
   // channel - The channel where the game is taking place
   // players - The players participating in the game
   // minimumBet - The minimum bet in the game
-  constructor(channel, players, minimumBet) {
+  constructor(channel, players, minimumBet, currency) {
     this.channel = channel;
     this.players = players;
     this.minimumBet = minimumBet;
+    this.currency = currency;
 
     this.pots = [];
     this.outcomes = [];
@@ -182,7 +183,7 @@ class PotManager {
       if (pot.amount === 0) continue;
       
       pot.result = HandEvaluator.evaluateHands(pot.participants, playerHands, board);
-      this.handleOutcome(pot);
+      this.handleOutcome(pot, this.currency);
       outcome.push(pot.result);
     }
     
@@ -209,7 +210,7 @@ class PotManager {
       if (pot.amount === 0) continue;
       
       pot.result = result;
-      this.handleOutcome(pot);
+      this.handleOutcome(pot, this.currency);
       outcome.push(pot.result);
     }
     
@@ -228,7 +229,7 @@ class PotManager {
   // pot - The pot that has ended
   //
   // Returns nothing
-  handleOutcome(pot) {
+  handleOutcome(pot, currency) {
     let message = '';
     let result = pot.result;
     
@@ -238,13 +239,13 @@ class PotManager {
           message += `${winner.name}, `;
           winner.chips += Math.floor(pot.amount / result.winners.length);
         } else {
-          message += `and ${winner.name} split the pot of $${pot.amount}`;
+          message += `and ${winner.name} split the pot of ${currency}${pot.amount}`;
           winner.chips += Math.ceil(pot.amount / result.winners.length);
         }
       });
       message += ` with ${result.handName}: ${result.hand.toString()}.`;
     } else {
-      message = `${result.winners[0].name} wins $${pot.amount}`;
+      message = `${result.winners[0].name} wins ${currency}${pot.amount}`;
       if (result.hand) {
         message += ` with ${result.handName}: ${result.hand.toString()}.`;
       } else {
