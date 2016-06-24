@@ -228,7 +228,6 @@ class TexasHoldem {
     return rx.Observable.defer(() => {
 
       // Display player position and who's next to act before polling.
-      //console.log(this.currency);
       PlayerStatus.displayHandStatus(this.channel,
         this.players, player,
         this.potManager, this.dealerButton,
