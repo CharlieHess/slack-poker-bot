@@ -16,7 +16,7 @@ class Bot {
   // token - An API token from the bot integration
   constructor(token) {
     this.slack = new Slack(token, true, true);
-    
+
     this.gameConfig = {};
     this.gameConfigParams = ['timeout'];
   }
@@ -38,17 +38,17 @@ class Bot {
     let messages = rx.Observable.fromEvent(this.slack, 'message')
       .where(e => e.type === 'message');
 
-    let atMentions = messages.where(e => 
+    let atMentions = messages.where(e =>
       MessageHelpers.containsUserMention(e.text, this.slack.self.id));
 
     let disp = new rx.CompositeDisposable();
-        
+
     disp.add(this.handleDealGameMessages(messages, atMentions));
     disp.add(this.handleConfigMessages(atMentions));
-    
+
     return disp;
   }
-  
+
   // Private: Looks for messages directed at the bot that contain the word
   // "deal." When found, start polling players for a game.
   //
@@ -72,7 +72,7 @@ class Bot {
       .flatMap(channel => this.pollPlayersForGame(messages, channel))
       .subscribe();
   }
-  
+
   // Private: Looks for messages directed at the bot that contain the word
   // "config" and have valid parameters. When found, set the parameter.
   //
@@ -84,7 +84,7 @@ class Bot {
       .where(e => e.text && e.text.toLowerCase().includes('config'))
       .subscribe(e => {
         let channel = this.slack.getChannelGroupOrDMByID(e.channel);
-        
+
         e.text.replace(/(\w*)=(\d*)/g, (match, key, value) => {
           if (this.gameConfigParams.indexOf(key) > -1 && value) {
             this.gameConfig[key] = value;
@@ -93,32 +93,45 @@ class Bot {
         });
       });
   }
-  
+
   // Private: Polls players to join the game, and if we have enough, starts an
   // instance.
   //
   // messages - An {Observable} representing messages posted to the channel
   // channel - The channel where the deal message was posted
   //
-  // Returns an {Observable} that signals completion of the game 
+  // Returns an {Observable} that signals completion of the game
   pollPlayersForGame(messages, channel) {
     this.isPolling = true;
 
     return PlayerInteraction.pollPotentialPlayers(messages, channel)
+      .flatMap(playerId => this.connectPlayersToOpenBank(messages, channel, playerId))
       .reduce((players, id) => {
         let user = this.slack.getUserByID(id);
         channel.send(`${user.name} has joined the game.`);
-        
+
         players.push({id: user.id, name: user.name});
         return players;
       }, [])
       .flatMap(players => {
         this.isPolling = false;
         this.addBotPlayers(players);
-        
+
         let messagesInChannel = messages.where(e => e.channel === channel.id);
         return this.startGame(messagesInChannel, channel, players);
       });
+  }
+
+  connectPlayersToOpenBank(messages, channel, userId) {
+    let user = this.slack.getUserByID(userId);
+
+    return SlackApiRx.getOrOpenDm(this.slack, user)
+      .pluck('dm')
+      .flatMap(dm => {
+        let messagesInChannel = messages.where(e => e.channel === dm.id);
+        return PlayerInteraction.connectToOpenBank(messagesInChannel, dm, userId);
+      })
+      .flatMap(() => rx.Observable.return(userId));
   }
 
   // Private: Starts and manages a new Texas Hold'em game.
@@ -127,7 +140,7 @@ class Bot {
   // channel - The channel where the game will be played
   // players - The players participating in the game
   //
-  // Returns an {Observable} that signals completion of the game 
+  // Returns an {Observable} that signals completion of the game
   startGame(messages, channel, players) {
     if (players.length <= 1) {
       channel.send('Not enough players for a game, try again later.');
@@ -136,7 +149,7 @@ class Bot {
 
     channel.send(`We've got ${players.length} players, let's start the game.`);
     this.isGameRunning = true;
-    
+
     let game = new TexasHoldem(this.slack, messages, channel, players);
     _.extend(game, this.gameConfig);
 
@@ -150,7 +163,7 @@ class Bot {
         channel.send(`${player.name} has decided to quit the game. The game will end after this hand.`);
         game.quit();
       });
-    
+
     return SlackApiRx.openDms(this.slack, players)
       .flatMap(playerDms => rx.Observable.timer(2000)
         .flatMap(() => game.start(playerDms)))
@@ -164,9 +177,9 @@ class Bot {
   //
   // players - The players participating in the game
   addBotPlayers(players) {
-    //let bot1 = new WeakBot('Phil Hellmuth');
-    //players.push(bot1);
-    
+    // let bot1 = new WeakBot('Phil Hellmuth');
+    // players.push(bot1);
+
     //let bot2 = new AggroBot('Phil Ivey');
     //players.push(bot2);
   }
@@ -180,7 +193,7 @@ class Bot {
     this.groups = _.keys(this.slack.groups)
       .map(k => this.slack.groups[k])
       .filter(g => g.is_open && !g.is_archived);
-      
+
     this.dms = _.keys(this.slack.dms)
       .map(k => this.slack.dms[k])
       .filter(dm => dm.is_open);
@@ -196,7 +209,7 @@ class Bot {
     if (this.groups.length > 0) {
       console.log(`As well as: ${this.groups.map(g => g.name).join(', ')}`);
     }
-    
+
     if (this.dms.length > 0) {
       console.log(`Your open DM's: ${this.dms.map(dm => dm.name).join(', ')}`);
     }
