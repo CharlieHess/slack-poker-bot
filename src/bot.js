@@ -72,16 +72,16 @@ class Bot {
       })
       .where(channel => {
           channel.send('Currency is not set! provide a currency("EUR", "GBP", "USD"): ');
-          var self = this;
-          let cur = messages.where(e => e.text && e.text.toLowerCase().match(/^(usd|eur|gbp|\$|€)$/))
-              .take(1).map(e => {
-                self.setCurrency(e.text);
-                self.isCurrencySet = true;
-                channel.send('Currency is set to: ' + self.currency);
-                self.pollPlayersForGame(messages, channel).subscribe();
-                return e.text})
-              .publish();
-          cur.connect();
+          messages
+            .where(e => e.text && e.text.toLowerCase().match(/^(usd|eur|gbp|\$|€)$/))
+            .take(1)
+            .map(e => {
+              this.setCurrency(e.text);
+              channel.send('Currency is set to: ' + this.currency);
+              this.pollPlayersForGame(messages, channel).subscribe();
+            })
+            .publish()
+            .connect();
         return true;
       })
       .subscribe();
