@@ -166,8 +166,8 @@ class Bot {
 
     channel.send(`We've got ${players.length} players, let's start the game.`);
     this.isGameRunning = true;
-    
-    let game = new TexasHoldem(this.slack, messages, channel, players);
+
+    let game = new TexasHoldem(this.slack, messages, channel, players, this.currency);
     _.extend(game, this.gameConfig);
 
     // Listen for messages directed at the bot containing 'quit game.'

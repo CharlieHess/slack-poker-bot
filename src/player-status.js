@@ -1,4 +1,5 @@
 const textTable = require('text-table');
+const bot = require('./bot');
 
 class PlayerStatus {
   // Public: Displays a fixed-width text table showing all of the players in
@@ -17,7 +18,7 @@ class PlayerStatus {
   //
   // Returns nothing
   static displayHandStatus(channel, players, actingPlayer,
-    potManager, dealerButton, bigBlind, smallBlind, tableFormatter=`\`\`\``) {
+    potManager, dealerButton, bigBlind, smallBlind, tableFormatter=`\`\`\``, currency) {
     let table = [];
 
     for (let idx = 0; idx < players.length; idx++) {
@@ -26,7 +27,7 @@ class PlayerStatus {
       let player = players[idx];
       let turnIndicator = player === actingPlayer ? '→ ' : '  ';
       row.push(`${turnIndicator}${player.name}`);
-      row.push(`$${player.chips}`);
+      row.push(`${currency}${player.chips}`);
 
       let handIndicator = player.isInHand ? '🂠' : ' ';
       row.push(handIndicator);
@@ -40,7 +41,7 @@ class PlayerStatus {
       if (player.lastAction) {
         let actionIndicator = player.lastAction.name;
         if (player.lastAction.amount > 0) {
-          actionIndicator += ` $${player.lastAction.amount}`;
+          actionIndicator += ` ${currency}${player.lastAction.amount}`;
         }
         row.push(actionIndicator);
       } else {
@@ -58,9 +59,9 @@ class PlayerStatus {
       if (amount === 0) continue;
       
       if (idx === 0) {
-        potBreakdown += `Main Pot: $${amount}\n`;
+        potBreakdown += `Main Pot: ${currency}${amount}\n`;
       } else {
-        potBreakdown += `Side Pot: $${amount}\n`;
+        potBreakdown += `Side Pot: ${currency}${amount}\n`;
       }
     }
     
