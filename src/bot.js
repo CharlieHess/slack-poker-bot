@@ -72,7 +72,7 @@ class Bot {
         return true;
       })
       .where(channel => {
-        if (!this.isCurrencySetted) {
+        if (!this.isCurrencySet) {
           channel.send('Currency is not set! provide a currency("EUR", "GBP", "USD"): ');
           var self = this;
           let cur = messages.where(e => e.text && e.text.toLowerCase().match(/^(usd|eur|gbp|\$|€)$/))
