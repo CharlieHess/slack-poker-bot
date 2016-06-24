@@ -9,6 +9,8 @@ const PlayerStatus = require('./player-status');
 const ImageHelpers = require('./image-helpers');
 const PlayerInteraction = require('./player-interaction');
 
+const debug = require('debug')('game');
+
 class TexasHoldem {
   // Public: Creates a new game instance.
   //
@@ -17,16 +19,17 @@ class TexasHoldem {
   // channel - The channel where the game will be played
   // players - The players participating in the game
   // scheduler - (Optional) The scheduler to use for timing events
-  constructor(slack, messages, channel, players, scheduler=rx.Scheduler.timeout) {
+  constructor(slack, messages, channel, players, currency, scheduler=rx.Scheduler.timeout) {
     this.slack = slack;
     this.messages = messages;
     this.channel = channel;
     this.players = players;
     this.scheduler = scheduler;
+    this.currency = currency;
 
     this.smallBlind = 1;
     this.bigBlind = this.smallBlind * 2;
-    this.potManager = new PotManager(this.channel, players, this.smallBlind);
+    this.potManager = new PotManager(this.channel, players, this.smallBlind, this.currency);
     this.gameEnded = new rx.Subject();
 
     // Each player starts with 100 big blinds.
@@ -231,7 +234,7 @@ class TexasHoldem {
         this.players, player,
         this.potManager, this.dealerButton,
         this.bigBlindIdx, this.smallBlindIdx,
-        this.tableFormatter);
+        this.tableFormatter, this.currency);
 
       return rx.Observable.timer(timeToPause, this.scheduler).flatMap(() => {
         this.actingPlayer = player;
@@ -553,12 +556,13 @@ class TexasHoldem {
       `${player.name} posts ${postingBlind} of`;
 
     if (action.name === 'bet')
-      message += ` $${action.amount}.`;
+      message += ` ${this.currency}${action.amount}.`;
     else if (action.name === 'raise')
-      message += ` to $${action.amount}.`;
+      message += ` to ${this.currency}${action.amount}.`;
     else
       message += '.';
 
+    debug(message);
     this.channel.send(message);
   }
 
