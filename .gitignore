@@ -1,3 +1,5 @@
 node_modules/
 output/
 token.txt
+lib
+db_slack_pokerbot

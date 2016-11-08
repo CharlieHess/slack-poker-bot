@@ -1,0 +1,10 @@
+{
+  "presets": ["es2016-node5"],
+  "plugins": ["transform-async-to-generator"],
+  "env": {
+    "test": {
+      "plugins": ["transform-async-to-generator", "__coverage__"],
+      "sourceMaps": "inline"
+    }
+  }
+}

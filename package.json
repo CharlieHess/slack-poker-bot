@@ -1,31 +1,48 @@
 {
   "name": "slack-poker-bot",
   "version": "1.0.0",
+  "description": "A bot that turns Slack into a legitimate Texas Hold'em client.",
+  "keywords": [
+    "slack",
+    "poker",
+    "bot"
+  ],
+  "author": "Charlie Hess",
   "engines": {
-    "node": "0.12.7"
+    "node": "6.5.0"
   },
-  "repository": "https://github.com/CharlieHess/slack-poker-bot",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/charliehess/slack-poker-bot"
+  },
   "scripts": {
-    "start": "node src/main.js",
-    "test": "gulp"
+    "start": "node lib/main.js",
+    "compile": "babel -d lib/ src/",
+    "prepublish": "npm run compile",
+    "test": "mocha --compilers js:babel-register ./test/*"
   },
   "license": "MIT",
   "devDependencies": {
-    "chai": "^2.2.0",
+    "babel-cli": "^6.18.0",
+    "babel-eslint": "^7.1.0",
+    "babel-preset-es2016-node5": "^1.1.2",
+    "babel-register": "^6.18.0",
+    "chai": "^3.5.0",
+    "eslint": "^3.9.1",
     "gulp": "^3.8.11",
     "gulp-mocha": "^2.0.1",
-    "mocha": "^2.2.4"
+    "mocha": "^3.1.2"
   },
   "dependencies": {
-    "babel": "^5.0.12",
+    "botkit": "^0.4.1",
     "imgur": "^0.1.5",
+    "lodash": "^4.16.6",
     "lwip": "0.0.8",
     "poker-evaluator": "^0.3.1",
     "promisify-node": "^0.1.5",
-    "rx": "^2.5.2",
+    "rxjs": "^5.0.0-rc.2",
     "slack-client": "^1.4.1",
     "text-table": "^0.2.0",
-    "underscore-plus": "^1.6.6",
     "uuid": "^2.0.1"
   }
 }
