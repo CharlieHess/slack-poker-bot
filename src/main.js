@@ -32,64 +32,72 @@ function trackBot(bot) {
   bots[bot.config.token] = bot;
 }
 
-controller.on('interactive_message_callback', (bot, message) => {
+const players = [];
 
-  let [user_id, item_id] = message.callback_id.split(/\-/);
-
-  controller.storage.users.get(user_id, (err, user) => {
-
-    user = user || {
-      id: user_id,
-      list: []
-    };
-
-    for (let item of user.list) {
-      if (item.id === item_id) {
-        if (message.actions[0].value === 'flag') {
-          item.flagged = !item.flagged;
-        }
-
-        if (message.actions[0].value === 'delete') {
-          user.list.splice(user.list.indexOf(item), 1);
-        }
-      }
-    }
-
-    let reply = {
-      text: 'Here is <@' + user_id + '>s list:',
-      attachments: []
-    };
-
-    for (let item of user.list) {
-      reply.attachments.push({
-        title: item.text + (item.flagged? ' *FLAGGED*' : ''),
-        callback_id: user_id + '-' + item.id,
-        attachment_type: 'default',
-        actions: [{
-          "name":"flag",
-          "text": ":waving_black_flag: Flag",
-          "value": "flag",
-          "type": "button"
-        },
-        {
-          "text": "Delete",
-          "name": "delete",
-          "value": "delete",
-          "style": "danger",
-          "type": "button",
-          "confirm": {
-            "title": "Are you sure?",
-            "text": "This will do something!",
-            "ok_text": "Yes",
-            "dismiss_text": "No"
-          }
-        }]
-      });
-    }
-
-    bot.replyInteractive(message, reply);
-    controller.storage.users.save(user);
+controller.hears(['start game', 'play game'], 'direct_mention', (bot, message) => {
+  bot.reply(message, {
+    text: 'Alright, who wants to play?',
+    attachments: [{
+      title: '',
+      callback_id: 'join-game',
+      attachment_type: 'default',
+      actions: [{
+        name: 'join',
+        text: 'Deal me in',
+        value: 'join',
+        type: 'button'
+      }]
+    }]
   });
+});
+
+function onJoinGame(userId) {
+  return new Promise((res, rej) => {
+    controller.storage.users.get(userId, (err, user) => {
+      if (err) rej(err);
+      players.push(user);
+      res(user);
+    });
+  });
+}
+
+function showAllParticipants(bot, message) {
+  let listPlayers = {
+    text: 'Our current lineup',
+    attachments: []
+  };
+
+  for (let player of players) {
+    listPlayers.attachments.push({
+      title: player.user,
+      callback_id: `leave-${player.id}`,
+      attachment_type: 'default',
+      actions: [{
+        text: "Leave",
+        name: "leave",
+        value: "leave",
+        style: "danger",
+        type: "button",
+        confirm: {
+          title: "Are you sure you want to quit?",
+          text: "Are you sure you want to quit?",
+          ok_text: "Yes",
+          dismiss_text: "No"
+        }
+      }]
+    });
+  }
+
+  bot.reply(message, listPlayers);
+}
+
+controller.on('interactive_message_callback', async (bot, message) => {
+  switch (message.callback_id) {
+  case 'join-game':
+    await onJoinGame(message.user);
+    showAllParticipants(bot, message);
+    break;
+  }
 });
 
 controller.on('create_bot', (bot, config) => {
