@@ -1,19 +1,22 @@
 import {slackbot} from 'botkit';
+import {showGameRoster, updateGameRoster, rosterMessageId, startGameMessageId} from './game-roster';
 
-if (!process.env.clientId || !process.env.clientSecret || !process.env.port) {
-  console.log('Error: Specify clientId clientSecret and port in environment');
+if (!process.env.POKER_BOT_CLIENT_ID ||
+  !process.env.POKER_BOT_CLIENT_SECRET ||
+  !process.env.POKER_BOT_PORT) {
+  console.log('Error: Specify POKER_BOT_CLIENT_ID, POKER_BOT_CLIENT_SECRET, and POKER_BOT_PORT in environment');
   process.exit(1);
 }
 
-let controller = slackbot({
+const controller = slackbot({
   json_file_store: './db_slack_pokerbot/'
 }).configureSlackApp({
-  clientId: process.env.clientId,
-  clientSecret: process.env.clientSecret,
+  clientId: process.env.POKER_BOT_CLIENT_ID,
+  clientSecret: process.env.POKER_BOT_CLIENT_SECRET,
   scopes: ['bot']
 });
 
-controller.setupWebserver(process.env.port, () => {
+controller.setupWebserver(process.env.POKER_BOT_PORT, () => {
   controller.createWebhookEndpoints(controller.webserver);
 
   controller.createOauthEndpoints(controller.webserver, (err, req, res) => {
@@ -32,70 +35,18 @@ function trackBot(bot) {
   bots[bot.config.token] = bot;
 }
 
-const players = [];
+const players = {};
 
 controller.hears(['start game', 'play game'], 'direct_mention', (bot, message) => {
-  bot.reply(message, {
-    text: 'Alright, who wants to play?',
-    attachments: [{
-      title: '',
-      callback_id: 'join-game',
-      attachment_type: 'default',
-      actions: [{
-        name: 'join',
-        text: 'Deal me in',
-        value: 'join',
-        type: 'button'
-      }]
-    }]
-  });
+  showGameRoster({players, bot, message});
 });
-
-function onJoinGame(userId) {
-  return new Promise((res, rej) => {
-    controller.storage.users.get(userId, (err, user) => {
-      if (err) rej(err);
-      players.push(user);
-      res(user);
-    });
-  });
-}
-
-function showAllParticipants(bot, message) {
-  let listPlayers = {
-    text: 'Our current lineup',
-    attachments: []
-  };
-
-  for (let player of players) {
-    listPlayers.attachments.push({
-      title: player.user,
-      callback_id: `leave-${player.id}`,
-      attachment_type: 'default',
-      actions: [{
-        text: "Leave",
-        name: "leave",
-        value: "leave",
-        style: "danger",
-        type: "button",
-        confirm: {
-          title: "Are you sure you want to quit?",
-          text: "Are you sure you want to quit?",
-          ok_text: "Yes",
-          dismiss_text: "No"
-        }
-      }]
-    });
-  }
-
-  bot.reply(message, listPlayers);
-}
 
 controller.on('interactive_message_callback', async (bot, message) => {
   switch (message.callback_id) {
-  case 'join-game':
-    await onJoinGame(message.user);
-    showAllParticipants(bot, message);
+  case rosterMessageId:
+    await updateGameRoster({controller, players, bot, message});
+    break;
+  case startGameMessageId:
     break;
   }
 });
@@ -105,13 +56,13 @@ controller.on('create_bot', (bot, config) => {
   if (bots[bot.config.token]) {
     // already online! do nothing.
   } else {
-    bot.startRTM(function(err) {
+    bot.startRTM((err) => {
 
       if (!err) {
         trackBot(bot);
       }
 
-      bot.startPrivateConversation({user: config.createdBy}, (err,convo) => {
+      bot.startPrivateConversation({user: config.createdBy}, (err, convo) => {
         if (err) {
           console.log(err);
         } else {
@@ -150,7 +101,7 @@ controller.storage.teams.all((err, teams) => {
 
     controller.spawn(teams[t]).startRTM((err, bot) => {
       if (err) {
-        console.log('Error connecting bot to Slack:',err);
+        console.log('Error connecting bot to Slack:', err);
       } else {
         trackBot(bot);
       }

@@ -16,7 +16,7 @@
     "url": "https://github.com/charliehess/slack-poker-bot"
   },
   "scripts": {
-    "start": "node lib/main.js",
+    "start": "npm run compile && node lib/main.js",
     "compile": "babel -d lib/ src/",
     "prepublish": "npm run compile",
     "test": "mocha --compilers js:babel-register ./test/*"
