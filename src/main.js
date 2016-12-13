@@ -1,5 +1,8 @@
 import {slackbot} from 'botkit';
-import {showGameRoster, updateGameRoster, rosterMessageId, startGameMessageId} from './game-roster';
+import {gameState} from './shared-constants';
+import {getOrUpdateUser} from './storage-utils';
+import {showGameRoster, updateGameRoster, showInProgressMessage,
+  rosterMessageId, startGameMessageId} from './game-roster';
 
 if (!process.env.POKER_BOT_CLIENT_ID ||
   !process.env.POKER_BOT_CLIENT_SECRET ||
@@ -36,9 +39,40 @@ function trackBot(bot) {
 }
 
 const players = {};
+let currentState = gameState.notStarted;
 
-controller.hears(['start game', 'play game'], 'direct_mention', (bot, message) => {
-  showGameRoster({players, bot, message});
+function resetGameState() {
+  for (const playerId of Object.keys(players)) {
+    delete players[playerId];
+  }
+  currentState = gameState.notStarted;
+}
+
+controller.hears([/^(start|play|deal)(\sgame)?$/i], 'direct_mention', (bot, message) => {
+  switch (currentState) {
+  case gameState.notStarted:
+    currentState = gameState.inRegistration;
+    showGameRoster({players, bot, message});
+    break;
+  case gameState.inRegistration:
+  case gameState.inProgress:
+    bot.reply(message, 'A game is already underway.');
+    break;
+  }
+});
+
+controller.hears([/^(stop|end)(\sgame)?$/i], 'direct_mention', async (bot, message) => {
+  switch (currentState) {
+  case gameState.notStarted:
+    bot.reply(message, "We haven't started a game yet.");
+    break;
+  case gameState.inRegistration:
+  case gameState.inProgress:
+    const {user} = await getOrUpdateUser({controller, message});
+    bot.reply(message, `This game was cancelled by ${user}.`);
+    resetGameState();
+    break;
+  }
 });
 
 controller.on('interactive_message_callback', async (bot, message) => {
@@ -47,12 +81,13 @@ controller.on('interactive_message_callback', async (bot, message) => {
     await updateGameRoster({controller, players, bot, message});
     break;
   case startGameMessageId:
+    currentState = gameState.inProgress;
+    showInProgressMessage({players, bot, message});
     break;
   }
 });
 
 controller.on('create_bot', (bot, config) => {
-
   if (bots[bot.config.token]) {
     // already online! do nothing.
   } else {
@@ -82,11 +117,6 @@ controller.on('rtm_open', () => {
 controller.on('rtm_close', () => {
   console.log('** The RTM api just closed');
   // you may want to attempt to re-open
-});
-
-controller.hears('^stop', 'direct_message', (bot, message) => {
-  bot.reply(message, 'Goodbye');
-  bot.rtm.close();
 });
 
 controller.storage.teams.all((err, teams) => {

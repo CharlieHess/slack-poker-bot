@@ -1,23 +1,22 @@
+import {getOrUpdateUser} from './storage-utils';
+
 export const rosterMessageId = 'roster-message';
 export const startGameMessageId = 'start-game';
 export const minimumPlayersNeeded = 2;
+export const maximumPlayersAllowed = 10;
 
 export function showGameRoster({players, bot, message, interactive = false}) {
   const playerIds = Object.keys(players);
   let rosterMessage = 'Alright, who wants to play?';
 
   if (playerIds.length > 0) {
-    rosterMessage += ' Our current lineup is';
+    rosterMessage += '\nOur current lineup is:\n';
 
-    for (let idx = 0; idx < playerIds.length; idx++) {
-      const playerId = playerIds[idx];
-      rosterMessage += ` ${players[playerId].user}`;
-
-      if (idx < playerIds.length - 1) rosterMessage += ',';
+    for (const playerId of playerIds) {
+      rosterMessage += `\t• ${players[playerId].user}\n`;
     }
   }
 
-  const replyMethod = interactive ? bot.replyInteractive : bot.reply;
   const attachments = [{
     title: '',
     callback_id: rosterMessageId,
@@ -56,6 +55,8 @@ export function showGameRoster({players, bot, message, interactive = false}) {
     });
   }
 
+  const replyMethod = interactive ? bot.replyInteractive : bot.reply;
+
   replyMethod(message, {
     text: rosterMessage,
     attachments
@@ -78,36 +79,21 @@ export async function updateGameRoster({controller, players, bot, message}) {
   }
 
   showGameRoster({players, bot, message, interactive: true});
-
-  // if (Object.keys(players).length === minimumPlayersNeeded) {
-  //   bot.replyInteractive(message, {
-  //     text: 'Start game',
-  //     replace_original: false,
-  //     response_type: 'ephemeral',
-  //     attachments: []
-  //   });
-  // }
 }
 
-function getOrUpdateUser({controller, message}) {
-  return new Promise((resolve, reject) => {
-    controller.storage.users.get(message.user, (err, user) => {
-      if (err) {
-        reject(err.message);
-        return;
-      }
+export function showInProgressMessage({players, bot, message}) {
+  const playerIds = Object.keys(players);
 
-      if (!user) {
-        const response = JSON.parse(message.payload);
-        user = {
-          id: message.user,
-          user: response.user.name
-        };
+  let inProgressMessage = 'A game is now in progress featuring';
+  for (let idx = 0; idx < playerIds.length; idx++) {
+    const playerId = playerIds[idx];
+    const isLastPlayer = idx === playerIds.length - 1;
 
-        controller.storage.users.save(user);
-      }
+    inProgressMessage +=
+      `${isLastPlayer ? ' and ' : ' '}` +
+      `${players[playerId].user}` +
+      `${isLastPlayer ? '.' : ','}`;
+  }
 
-      resolve(user);
-    });
-  });
+  bot.replyInteractive(message, inProgressMessage);
 }
