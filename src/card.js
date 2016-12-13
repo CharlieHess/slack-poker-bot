@@ -1,4 +1,4 @@
-class Card {
+export class Card {
   constructor(rank, suit) {
     this.rank = rank;
     this.suit = suit;
@@ -7,7 +7,7 @@ class Card {
   toString() {
     return `${this.rank}${Card.SuitMapping()[this.suit]}`;
   }
-  
+
   toAsciiString() {
     return `${this.rank}${this.suit.substring(0, 1).toLowerCase()}`;
   }
@@ -21,8 +21,11 @@ class Card {
   }
 
   static SuitMapping() {
-    return {'Spades':'♠', 'Hearts':'♥', 'Diamonds':'♦', 'Clubs':'♣'};
+    return {
+      Spades:   '♠',
+      Hearts:   '♥',
+      Diamonds: '♦',
+      Clubs:    '♣'
+    };
   }
 }
-
-module.exports = Card;

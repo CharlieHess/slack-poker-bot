@@ -1,33 +1,23 @@
-const rx = require('rx');
-const _ = require('underscore-plus');
+import _ from 'underscore-plus';
+import {Observable, Subject, Scheduler} from 'rx';
 
-const Deck = require('./deck');
-const PotManager = require('./pot-manager');
-const SlackApiRx = require('./slack-api-rx');
-const PlayerOrder = require('./player-order');
-const PlayerStatus = require('./player-status');
-const ImageHelpers = require('./image-helpers');
-const PlayerInteraction = require('./player-interaction');
+import {Deck} from './deck';
+import {PotManager} from './pot-manager';
+import {PlayerOrder} from './player-order';
+import {displayHandStatus} from './player-status';
+import {createBoardImage} from './image-helpers';
+import PlayerInteraction from './player-interaction';
 
-class TexasHoldem {
-  // Public: Creates a new game instance.
-  //
-  // slack - An instance of the Slack client
-  // messages - An {Observable} representing messages posted to the channel
-  // channel - The channel where the game will be played
-  // players - The players participating in the game
-  // scheduler - (Optional) The scheduler to use for timing events
-  constructor(slack, messages, channel, players, scheduler=rx.Scheduler.timeout) {
-    this.slack = slack;
-    this.messages = messages;
-    this.channel = channel;
+export class TexasHoldem {
+  constructor({bot, players, scheduler=Scheduler.timeout}) {
+    this.bot = bot;
     this.players = players;
     this.scheduler = scheduler;
 
     this.smallBlind = 1;
     this.bigBlind = this.smallBlind * 2;
-    this.potManager = new PotManager(this.channel, players, this.smallBlind);
-    this.gameEnded = new rx.Subject();
+    this.potManager = new PotManager({bot, players, minimumBet: this.smallBlind});
+    this.gameEnded = new Subject();
 
     // Each player starts with 100 big blinds.
     for (let player of this.players) {
@@ -35,30 +25,26 @@ class TexasHoldem {
     }
   }
 
-  // Public: Starts a new game.
-  //
-  // playerDms - A hash mapping player ID to their DM channel, used to inform
-  //             players of their pocket cards.
-  // dealerButton - (Optional) The initial index of the dealer button, or null
-  //                to have it randomly assigned
-  // timeBetweenHands - (Optional) The time, in milliseconds, to pause between
-  //                    the end of one hand and the start of another
-  //
-  // Returns an {Observable} that signals completion of the game
-  start(playerDms, dealerButton=null, timeBetweenHands=5000) {
+  /**
+   * Starts a new game.
+   *
+   * @param  {Number} dealerButton=null     The initial index of the dealer button
+   * @param  {Number} timeBetweenHands=5000 The time, in milliseconds, to pause between hands
+   * @return {Observable}                   An Observable that signals completion
+   */
+  start(dealerButton=null, timeBetweenHands=5000) {
     this.isRunning = true;
-    this.playerDms = playerDms;
     this.dealerButton = dealerButton === null ?
       Math.floor(Math.random() * this.players.length) :
       dealerButton;
 
-    rx.Observable.return(true)
+    Observable.return(true)
       .flatMap(() => this.playHand()
-        .flatMap(() => rx.Observable.timer(timeBetweenHands, this.scheduler)))
+        .flatMap(() => Observable.timer(timeBetweenHands, this.scheduler)))
       .repeat()
       .takeUntil(this.gameEnded)
       .subscribe();
-      
+
     return this.gameEnded;
   }
 
@@ -69,10 +55,10 @@ class TexasHoldem {
     if (winner) {
       this.channel.send(`Congratulations ${winner.name}, you've won!`);
     }
-    
+
     this.gameEnded.onNext(winner);
     this.gameEnded.onCompleted();
-    
+
     this.isRunning = false;
   }
 
@@ -102,7 +88,7 @@ class TexasHoldem {
     this.deck.shuffle();
     this.dealPlayerCards();
 
-    let handEnded = new rx.Subject();
+    let handEnded = new Subject();
 
     this.doBettingRound('preflop').subscribe(result => {
       if (result.isHandComplete) {
@@ -112,7 +98,7 @@ class TexasHoldem {
         this.flop(handEnded);
       }
     });
-    
+
     return handEnded;
   }
 
@@ -126,10 +112,10 @@ class TexasHoldem {
       player.isAllIn = false;
       player.isBettor = false;
     }
-    
+
     let participants = _.filter(this.players, p => p.isInHand);
     this.potManager.createPot(participants);
-    
+
     this.smallBlindIdx = PlayerOrder.getNextPlayerIndex(this.dealerButton, this.players);
     this.bigBlindIdx = PlayerOrder.getNextPlayerIndex(this.smallBlindIdx, this.players);
   }
@@ -146,19 +132,19 @@ class TexasHoldem {
     let playersWhoCanBet = _.filter(playersRemaining, p => !p.isAllIn);
     if (playersWhoCanBet.length < 2) {
       let result = { isHandComplete: false };
-      return rx.Observable.return(result);
+      return Observable.return(result);
     }
 
     this.orderedPlayers = PlayerOrder.determine(this.players, this.dealerButton, round);
     let previousActions = {};
-    let roundEnded = new rx.Subject();
+    let roundEnded = new Subject();
 
     this.resetPlayersForBetting(round, previousActions);
 
     // Take the players remaining in the hand, in order, and poll each for
     // an action. This cycle will be repeated until the round is ended, which
     // can occur after any player action.
-    let queryPlayers = rx.Observable.fromArray(this.orderedPlayers)
+    let queryPlayers = Observable.fromArray(this.orderedPlayers)
       .where((player) => player.isInHand && !player.isAllIn)
       .concatMap((player) => this.deferredActionForPlayer(player, previousActions, roundEnded))
       .repeat()
@@ -224,22 +210,22 @@ class TexasHoldem {
   //
   // Returns an {Observable} containing the player's action
   deferredActionForPlayer(player, previousActions, roundEnded, timeToPause=1000) {
-    return rx.Observable.defer(() => {
+    return Observable.defer(() => {
 
       // Display player position and who's next to act before polling.
-      PlayerStatus.displayHandStatus(this.channel,
+      displayHandStatus(this.channel,
         this.players, player,
         this.potManager, this.dealerButton,
         this.bigBlindIdx, this.smallBlindIdx,
         this.tableFormatter);
 
-      return rx.Observable.timer(timeToPause, this.scheduler).flatMap(() => {
+      return Observable.timer(timeToPause, this.scheduler).flatMap(() => {
         this.actingPlayer = player;
 
         return PlayerInteraction.getActionForPlayer(this.messages, this.channel,
-          player, previousActions, this.scheduler, this.timeout)
-          .do(action => this.onPlayerAction(player, action, previousActions, roundEnded));
-        });
+          player, previousActions, this.scheduler, this.timeout).do(action =>
+            this.onPlayerAction(player, action, previousActions, roundEnded));
+      });
     });
   }
 
@@ -360,13 +346,13 @@ class TexasHoldem {
       currentBettor.isBettor = false;
       currentBettor.hasOption = false;
     }
-    
+
     player.isBettor = true;
     if (player.chips === 0) {
       player.isAllIn = true;
     }
-    
-    let playersWhoCanCall = _.filter(this.players, 
+
+    let playersWhoCanCall = _.filter(this.players,
       p => p.isInHand && !p.isBettor && p.chips > 0);
     if (playersWhoCanCall.length === 0) {
       let result = { isHandComplete: false };
@@ -407,7 +393,7 @@ class TexasHoldem {
     this.deck.drawCard(); // Burn one
     let turn = this.deck.drawCard();
     this.board.push(turn);
-    
+
     this.postBoard('turn').subscribe(() => {
       this.doBettingRound('turn').subscribe(result => {
         if (result.isHandComplete) {
@@ -442,7 +428,7 @@ class TexasHoldem {
       });
     });
   }
-  
+
   // Private: Move the dealer button and see if the game has ended.
   //
   // handEnded - A {Subject} that is used to end the hand
@@ -453,7 +439,7 @@ class TexasHoldem {
 
     handEnded.onNext(true);
     handEnded.onCompleted();
-    
+
     this.checkForGameWinner();
   }
 
@@ -486,15 +472,8 @@ class TexasHoldem {
       this.playerHands[player.id].push(card);
 
       if (!player.isBot) {
-        let dm = this.playerDms[player.id];
-        if (!dm) {
-          SlackApiRx.getOrOpenDm.subscribe(({dm}) => {
-            this.playerDms[player.id] = dm;
-            dm.send(`Your hand is: ${this.playerHands[player.id]}`);
-          });
-        } else {
-          dm.send(`Your hand is: ${this.playerHands[player.id]}`);
-        }
+        throw new Error('Replace with bot API');
+        //dm.send(`Your hand is: ${this.playerHands[player.id]}`);
       } else {
         player.holeCards = this.playerHands[player.id];
       }
@@ -508,12 +487,12 @@ class TexasHoldem {
   //
   // Returns an {Observable} indicating completion
   postBoard(round) {
-    return ImageHelpers.createBoardImage(this.board)
+    return createBoardImage(this.board)
       .timeout(10000)
       .flatMap(url => {
         let message = {
           as_user: true,
-          token: this.slack.token,
+          token: this.slack.token
         };
 
         message.attachments = [{
@@ -528,15 +507,15 @@ class TexasHoldem {
 
         // NB: Since we don't have a callback for the message arriving, we're
         // just going to wait a second before continuing.
-        return rx.Observable.timer(1000, this.scheduler);
+        return Observable.timer(1000, this.scheduler);
       })
       .take(1)
       .catch(() => {
         console.error('Creating board image timed out');
         let message = `Dealing the ${round}:\n${this.board.toString()}`;
         this.channel.send(message);
-        
-        return rx.Observable.timer(1000, this.scheduler);
+
+        return Observable.timer(1000, this.scheduler);
       });
   }
 
@@ -575,5 +554,3 @@ class TexasHoldem {
       actions.indexOf(p.lastAction.name) > -1);
   }
 }
-
-module.exports = TexasHoldem;

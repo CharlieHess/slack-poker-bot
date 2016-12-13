@@ -1,6 +1,6 @@
-const Card = require('./card.js');
+import {Card} from './card';
 
-class Deck {
+export class Deck {
   constructor() {
     this.cards = [];
     for (let suit of Card.Suits()) {
@@ -11,9 +11,11 @@ class Deck {
     }
   }
 
-  // Public: Performs a proper Fisher-Yates shuffle.
-  //
-  // Returns nothing; the shuffle is in-place.
+  /**
+   * Performs a proper Fisher-Yates shuffle.
+   *
+   * @return {Undefined}  Nothing; the shuffle is in-place
+   */
   shuffle() {
     let temp, idx;
     let cardsRemaining = this.cards.length;

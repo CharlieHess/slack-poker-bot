@@ -1,8 +1,10 @@
 import {slackbot} from 'botkit';
+
 import {gameState} from './shared-constants';
 import {getOrUpdateUser} from './storage-utils';
 import {showGameRoster, updateGameRoster, showInProgressMessage,
   rosterMessageId, startGameMessageId} from './game-roster';
+import {TexasHoldem} from './texas-holdem';
 
 if (!process.env.POKER_BOT_CLIENT_ID ||
   !process.env.POKER_BOT_CLIENT_SECRET ||
@@ -39,9 +41,12 @@ function trackBot(bot) {
 }
 
 const players = {};
+
+let currentGame = null;
 let currentState = gameState.notStarted;
 
 function resetGameState() {
+  currentGame = null;
   for (const playerId of Object.keys(players)) {
     delete players[playerId];
   }
@@ -81,6 +86,7 @@ controller.on('interactive_message_callback', async (bot, message) => {
     await updateGameRoster({controller, players, bot, message});
     break;
   case startGameMessageId:
+    currentGame = new TexasHoldem({bot, players});
     currentState = gameState.inProgress;
     showInProgressMessage({players, bot, message});
     break;
