@@ -132,10 +132,10 @@ class ImageHelpers {
   //
   // img - The image to convert
   //
-  // Returns a {Promise} of the {Buffer}, encoded as a jpeg
+  // Returns a {Promise} of the {Buffer}, encoded as a png
   static toBuffer(img) {
     return new Promise((resolve, reject) => {
-      img.toBuffer('jpg', {quality: 100}, (err, buffer) => {
+      img.toBuffer('png', (err, buffer) => {
         if (!err) {
           resolve(buffer);
         } else {
