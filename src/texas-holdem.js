@@ -275,6 +275,7 @@ class TexasHoldem {
       break;
     case 'bet':
     case 'raise':
+    case 'all-in':
       this.onPlayerBet(player, roundEnded);
       break;
     }
@@ -365,8 +366,8 @@ class TexasHoldem {
     if (player.chips === 0) {
       player.isAllIn = true;
     }
-    
-    let playersWhoCanCall = _.filter(this.players, 
+
+    let playersWhoCanCall = _.filter(this.players,
       p => p.isInHand && !p.isBettor && p.chips > 0);
     if (playersWhoCanCall.length === 0) {
       let result = { isHandComplete: false };

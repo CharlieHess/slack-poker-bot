@@ -135,7 +135,8 @@ class PlayerInteraction {
   // Returns an array of strings
   static getAvailableActions(player, previousActions) {
     let actions = _.values(previousActions);
-    let betActions = _.filter(actions, a => a.name === 'bet' || a.name === 'raise');
+    let betActions = _.filter(actions, a => a.name === 'bet'
+      || a.name === 'raise' || a.name === 'all-in');
     let hasBet = betActions.length > 0;
 
     let availableActions = [];
@@ -143,12 +144,15 @@ class PlayerInteraction {
     if (player.hasOption) {
       availableActions.push('check');
       availableActions.push('raise');
+      availableActions.push('all-in');
     } else if (hasBet) {
       availableActions.push('call');
       availableActions.push('raise');
+      availableActions.push('all-in');
     } else {
       availableActions.push('check');
       availableActions.push('bet');
+      availableActions.push('all-in');
     }
 
     // Prevent players from raising when they don't have enough chips.
@@ -205,6 +209,10 @@ class PlayerInteraction {
     case 'raise':
       name = 'raise';
       amount = input[1] ? parseInt(input[1]) : NaN;
+      break;
+    case 'a':
+    case 'all-in':
+      name = 'all-in';
       break;
     default:
       return null;
