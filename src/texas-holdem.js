@@ -509,7 +509,7 @@ class TexasHoldem {
   // Returns an {Observable} indicating completion
   postBoard(round) {
     return ImageHelpers.createBoardImage(this.board)
-      .timeout(10000)
+      .timeout(12000)
       .flatMap(url => {
         let message = {
           as_user: true,
