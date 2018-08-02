@@ -528,7 +528,7 @@ class TexasHoldem {
 
         // NB: Since we don't have a callback for the message arriving, we're
         // just going to wait a second before continuing.
-        return rx.Observable.timer(1000, this.scheduler);
+        return rx.Observable.timer(2000, this.scheduler);
       })
       .take(1)
       .catch(() => {

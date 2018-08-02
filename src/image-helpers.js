@@ -24,9 +24,11 @@ class ImageHelpers {
     }
 
     let makeImage = null;
+    let imagePath = null;
     switch (cards.length) {
       case 3:
         makeImage = ImageHelpers.combineThree(imageFiles, './output/flop.png');
+        imagePath = './output/flop.png';
         break;
       case 4:
         makeImage = ImageHelpers.combineThree(
@@ -38,6 +40,7 @@ class ImageHelpers {
             './output/turn.png',
           ),
         );
+        imagePath = './output/turn.png';
         break;
       case 5:
         makeImage = ImageHelpers.combineThree(
@@ -49,6 +52,7 @@ class ImageHelpers {
             './output/river.png',
           ),
         );
+        imagePath = './output/river.png';
         break;
       default:
         throw new Error(
@@ -57,7 +61,7 @@ class ImageHelpers {
     }
 
     makeImage
-      .then(outputFile => upload(outputFile))
+      .then(outputFile => upload(imagePath))
       .then(result => {
         subj.onNext(result.data.link);
         subj.onCompleted();
