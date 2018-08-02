@@ -24,14 +24,14 @@ class TexasHoldem {
     this.players = players;
     this.scheduler = scheduler;
 
-    this.smallBlind = 1;
+    this.smallBlind = 3;
     this.bigBlind = this.smallBlind * 2;
     this.potManager = new PotManager(this.channel, players, this.smallBlind);
     this.gameEnded = new rx.Subject();
 
     // Each player starts with 100 big blinds.
     for (let player of this.players) {
-      player.chips = this.bigBlind * 100;
+      player.chips = this.bigBlind * 40;
     }
   }
 
