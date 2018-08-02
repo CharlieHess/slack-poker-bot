@@ -7,13 +7,13 @@ class Card {
   toString() {
     return `${this.rank}${Card.SuitMapping()[this.suit]}`;
   }
-  
+
   toAsciiString() {
     return `${this.rank}${this.suit.substring(0, 1).toLowerCase()}`;
   }
 
   static Ranks() {
-    return ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
+    return ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
   }
 
   static Suits() {
@@ -21,7 +21,7 @@ class Card {
   }
 
   static SuitMapping() {
-    return {'Spades':'♠', 'Hearts':'♥', 'Diamonds':'♦', 'Clubs':'♣'};
+    return {Spades: '♠', Hearts: '♥', Diamonds: '♦', Clubs: '♣'};
   }
 }
 

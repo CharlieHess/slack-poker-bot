@@ -24,14 +24,14 @@ class TexasHoldem {
     this.players = players;
     this.scheduler = scheduler;
 
-    this.smallBlind = 1;
+    this.smallBlind = 3;
     this.bigBlind = this.smallBlind * 2;
     this.potManager = new PotManager(this.channel, players, this.smallBlind);
     this.gameEnded = new rx.Subject();
 
     // Each player starts with 100 big blinds.
     for (let player of this.players) {
-      player.chips = this.bigBlind * 100;
+      player.chips = this.bigBlind * 40;
     }
   }
 
@@ -509,7 +509,7 @@ class TexasHoldem {
   // Returns an {Observable} indicating completion
   postBoard(round) {
     return ImageHelpers.createBoardImage(this.board)
-      .timeout(10000)
+      .timeout(12000)
       .flatMap(url => {
         let message = {
           as_user: true,
@@ -528,7 +528,7 @@ class TexasHoldem {
 
         // NB: Since we don't have a callback for the message arriving, we're
         // just going to wait a second before continuing.
-        return rx.Observable.timer(1000, this.scheduler);
+        return rx.Observable.timer(2000, this.scheduler);
       })
       .take(1)
       .catch(() => {
