@@ -19,7 +19,7 @@
   "dependencies": {
     "babel": "^5.0.12",
     "imgur": "^0.1.5",
-    "lwip": "0.0.8",
+    "jimp": "^0.3.0",
     "poker-evaluator": "^0.3.1",
     "promisify-node": "^0.1.5",
     "rx": "^2.5.2",
